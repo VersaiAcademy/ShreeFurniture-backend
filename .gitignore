@@ -1,32 +1,22 @@
-# Byte-compiled / compiled files
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Node.js
+node_modules
+npm-debug.log
+yarn-error.log
+.env
+.DS_Store
 
-# Virtual environments
-venv/
-env/
-*.env/
-
-# IDE specific files
-.vscode/
-.idea/
+# Build outputs
+dist
+build
+tmp
+.cache
 
 # Logs
 *.log
 
-# Compiled Python files
-*.pyc
+# IDEs
+.vscode/
+.idea/
 
-# Jupyter Notebook
-.ipynb_checkpoints/
-
-# Environment variables file
-.env
-
-# Dependency directories
-lib/
-lib64/
-bin/
-include/
+# System files
+Thumbs.db
