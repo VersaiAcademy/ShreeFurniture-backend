@@ -1,4 +1,4 @@
-// server.js (updated with proper route order)
+// backend/server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,48 +10,28 @@ dotenv.config();
 
 const app = express();
 
-// Helper to parse CLIENT_ORIGIN env (comma separated) into normalized array
-function parseAllowedOrigins(envValue) {
-  if (!envValue || typeof envValue !== 'string') return [];
-  return envValue
-    .split(',')
-    .map(s => s.trim().replace(/\/$/, '')) // trim and remove trailing slash
-    .filter(Boolean);
-}
-
-// Default allowed origins (fallback)
-const fallbackOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
+/* ==========================
+   ✅ CORS Configuration
+   ========================== */
+const allowedOrigins = [
+  'https://shree-furniture-versai.vercel.app',       // Frontend
+  'https://shree-furniture-versai-v2ee.vercel.app',  // Admin
+  'http://localhost:5173',                           // Local frontend (Vite)
+  'http://localhost:3000',                           // Local admin (React)
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000'
 ];
 
-const configuredOrigins = parseAllowedOrigins(process.env.CLIENT_ORIGIN);
-const allowedOrigins = configuredOrigins.length ? configuredOrigins : fallbackOrigins;
-
 console.log('✅ Allowed CORS origins:', allowedOrigins);
 
-// CORS middleware
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Allow Postman / direct API calls
 
     const originNormalized = origin.replace(/\/$/, '');
     console.log('🔍 CORS check incoming origin:', originNormalized);
 
     if (allowedOrigins.includes(originNormalized)) {
-      return callback(null, true);
-    }
-
-    if (
-      originNormalized.startsWith('http://localhost') ||
-      originNormalized.startsWith('http://127.0.0.1') ||
-      originNormalized.startsWith('https://localhost') ||
-      originNormalized.startsWith('https://127.0.0.1')
-    ) {
       return callback(null, true);
     }
 
@@ -63,65 +43,66 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
 }));
 
-// Allow preflight for all routes
+// Allow preflight requests
 app.options('*', cors());
 
-// Body parsers
+/* ==========================
+   ✅ Middleware
+   ========================== */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
+// Serve static and upload folders
 app.use('/static', express.static(path.join(__dirname, 'static')));
-// Serve uploaded files (images) when stored locally
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Request logger (helpful for debugging)
+// Request logger for debugging
 app.use((req, res, next) => {
   console.log(`📍 ${req.method} ${req.path}`);
   next();
 });
 
-// === Routes ===
-// Health check endpoint (should be first)
+/* ==========================
+   ✅ Routes
+   ========================== */
+
+// Health check route (first)
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    port: process.env.PORT || 5000
+    environment: process.env.NODE_ENV || 'production',
+    port: process.env.PORT || 5000,
   });
 });
 
-// Public routes (no auth required)
+// Public routes (no auth)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/banners', require('./routes/banners'));
+app.use('/api/products', require('./routes/products'));
 
-// ✅ ADMIN ROUTES - These need authentication
+// User routes (auth required)
+app.use('/api/cart', require('./routes/cart'));
+app.use('/api/orders', require('./routes/orders'));
+app.use('/api/address', require('./routes/address'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/razorpay', require('./routes/razorpay'));
+
+// Admin routes (auth required)
 console.log('📦 Registering admin routes...');
 try {
   const adminRoutes = require('./routes/admin');
   app.use('/api/admin', adminRoutes);
   console.log('✅ Admin routes registered successfully');
-} catch (error) {
-  console.error('❌ Failed to load admin routes:', error.message);
+} catch (err) {
+  console.error('❌ Failed to load admin routes:', err.message);
 }
 
-// Public product routes (for frontend display)
-app.use('/api/products', require('./routes/products'));
-
-// User protected routes (require user authentication)
-app.use('/api/cart', require('./routes/cart'));
-app.use('/api/orders', require('./routes/orders'));
-app.use('/api/address', require('./routes/address'));
-
-// Upload routes (require authentication)
-app.use('/api/upload', require('./routes/upload'));
-
-// Payment routes
-app.use('/api/razorpay', require('./routes/razorpay'));
-
-// List all registered routes (for debugging)
+/* ==========================
+   ✅ Debug: List All Routes
+   ========================== */
 console.log('\n📋 Registered Routes:');
 app._router.stack.forEach((middleware) => {
   if (middleware.route) {
@@ -129,7 +110,10 @@ app._router.stack.forEach((middleware) => {
   } else if (middleware.name === 'router') {
     middleware.handle.stack.forEach((handler) => {
       if (handler.route) {
-        const path = middleware.regexp.source.replace('\\/?(?=\\/|$)', '').replace(/\\\//g, '/').replace('^', '');
+        const path = middleware.regexp.source
+          .replace('\\/?(?=\\/|$)', '')
+          .replace(/\\\//g, '/')
+          .replace('^', '');
         console.log(`  ${Object.keys(handler.route.methods).join(', ').toUpperCase()} ${path}${handler.route.path}`);
       }
     });
@@ -137,46 +121,47 @@ app._router.stack.forEach((middleware) => {
 });
 console.log('\n');
 
-// 404 handler (must be AFTER all routes)
+/* ==========================
+   ✅ 404 & Error Handling
+   ========================== */
 app.use('*', (req, res) => {
-  console.log('❌ 404 - Route not found:', req.method, req.originalUrl);
-  res.status(404).json({ 
+  console.log('❌ 404 - Route not found:', req.originalUrl);
+  res.status(404).json({
     message: 'Route not found',
     path: req.originalUrl,
-    method: req.method
+    method: req.method,
   });
 });
 
-// Error handling middleware (must be LAST)
 app.use((err, req, res, next) => {
-  console.error('❌ Unhandled error:', err.stack || err);
-  const status = err.status || 500;
-  res.status(status).json({
-    message: err.message || 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  console.error('💥 Unhandled Error:', err.message);
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
   });
 });
 
-// === Database connection and server start ===
+/* ==========================
+   ✅ Database & Server Start
+   ========================== */
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
-  console.error('❌ MONGO_URI not set in environment. Exiting.');
+  console.error('❌ MONGO_URI not set in environment');
   process.exit(1);
 }
 
-mongoose.connect(MONGO_URI)
+mongoose
+  .connect(MONGO_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');
-
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
-      console.log(`\n🚀 Server is running on port ${PORT}`);
-      console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
-      console.log(`📍 Admin API: http://localhost:${PORT}/api/admin/products`);
-      console.log(`📍 Public API: http://localhost:${PORT}/api/products\n`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📍 Health check: https://shreefurniture-backend-production.up.railway.app/api/health`);
+      console.log(`📍 Public API: https://shreefurniture-backend-production.up.railway.app/api/products`);
+      console.log(`📍 Admin API: https://shreefurniture-backend-production.up.railway.app/api/admin/products`);
     });
   })
-  .catch((error) => {
-    console.error('❌ MongoDB connection error:', error);
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err.message);
     process.exit(1);
   });
