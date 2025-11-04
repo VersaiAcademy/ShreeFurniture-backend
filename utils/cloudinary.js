@@ -13,7 +13,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'shri-furniture',
+    folder: 'shreefurniture',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     transformation: [{ width: 800, height: 600, crop: 'limit' }]
   }
@@ -34,7 +34,7 @@ const upload = multer({
 });
 
 // Upload single image to Cloudinary
-const uploadToCloudinary = async (filePath, folder = 'shri-furniture') => {
+const uploadToCloudinary = async (filePath, folder = 'shreefurniture') => {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
       folder: folder,
