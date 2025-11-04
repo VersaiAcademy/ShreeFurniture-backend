@@ -21,11 +21,19 @@ if (useCloudinary) {
         return res.status(400).json({ message: 'No image file provided', status: 400 });
       }
 
+      console.log('📸 Single upload received file:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        filename: req.file.filename,
+        path: req.file.path
+      });
+
       // cloudinary uploader returns path in req.file.path (secure_url)
       res.status(200).json({ message: 'Image uploaded successfully', imageUrl: req.file.path, publicId: req.file.filename, status: 200 });
     } catch (error) {
       console.error('Cloudinary upload error:', error);
-      res.status(500).json({ message: 'Something went wrong while uploading image', status: 500 });
+      res.status(500).json({ message: 'Something went wrong while uploading image', error: error.message, status: 500 });
     }
   });
 
@@ -35,12 +43,20 @@ if (useCloudinary) {
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: 'No image files provided', status: 400 });
       }
+      console.log('📸 Multiple upload received files count:', req.files.length);
+      console.log('First file sample:', {
+        originalname: req.files[0]?.originalname,
+        mimetype: req.files[0]?.mimetype,
+        size: req.files[0]?.size,
+        filename: req.files[0]?.filename,
+        path: req.files[0]?.path
+      });
       const imageUrls = req.files.map(file => file.path);
       const publicIds = req.files.map(file => file.filename);
       res.status(200).json({ message: 'Images uploaded successfully', imageUrls, publicIds, status: 200 });
     } catch (error) {
       console.error('Cloudinary multiple upload error:', error);
-      res.status(500).json({ message: 'Something went wrong while uploading images', status: 500 });
+      res.status(500).json({ message: 'Something went wrong while uploading images', error: error.message, status: 500 });
     }
   });
 
