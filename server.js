@@ -13,27 +13,45 @@ const app = express();
    ================================================ */
 const allowedOrigins = [
   "https://shree-furniture-versai.vercel.app", // Frontend (Vercel)
-  "https://shree-furniture-versai-admin.vercel.app", // Admin (Vercel - check actual domain)
+  "https://shree-furniture-versai-v2ee.vercel.app", // Admin (Vercel)
   "http://localhost:5173", // Vite (Frontend local)
   "http://localhost:3000", // React (Admin local)
+  "http://localhost:5174", // Alternative Vite port
   "http://127.0.0.1:5173",
-  "http://127.0.0.1:3000"
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5174"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Allow Postman
+      // Allow requests with no origin (like mobile apps, Postman, curl)
+      if (!origin) return callback(null, true);
+      
       const normalizedOrigin = origin.replace(/\/$/, "");
+      
+      // Check if origin is in allowed list
       if (allowedOrigins.includes(normalizedOrigin)) {
         return callback(null, true);
       }
+      
+      // Log for debugging
+      console.log("⚠️ CORS check - Origin:", normalizedOrigin);
+      console.log("⚠️ Allowed origins:", allowedOrigins);
+      
+      // In development, be more permissive
+      if (process.env.NODE_ENV === "development") {
+        console.log("⚠️ Development mode - allowing origin");
+        return callback(null, true);
+      }
+      
       console.error("❌ CORS blocked:", normalizedOrigin);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
   })
 );
 
