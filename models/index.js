@@ -48,7 +48,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// ✅ UPDATED Product Schema - Fixed validation
+  // ✅ UPDATED Product Schema - Added Color Variants
 const productSchema = new mongoose.Schema({
   pname: {
     type: String,
@@ -81,6 +81,10 @@ const productSchema = new mongoose.Schema({
   img3: { type: String, default: '' },
   img4: { type: String, default: '' },
   img5: { type: String, default: '' },
+
+  // Color Variant Images
+  stone_finish_image: { type: String, default: '' },
+  natural_finish_image: { type: String, default: '' },
   
   // ✅ Basic fields
   material: { type: String, required: [true, 'Material is required'], trim: true },
