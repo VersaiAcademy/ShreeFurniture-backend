@@ -77,8 +77,10 @@ const productSchema = new mongoose.Schema({
     min: [0, 'Stock count cannot be negative']
   },
   
-  // Main Product Images
-  img1: { type: String, required: [true, 'At least one image is required'] },
+	// Main Product Images
+	// img1 used to be required; product schema updated to allow variant-only products,
+	// so make img1 optional and default to an empty string.
+	img1: { type: String, default: '' },
   img2: { type: String, default: '' },
   img3: { type: String, default: '' },
   img4: { type: String, default: '' },
