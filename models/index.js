@@ -122,6 +122,11 @@ const productSchema = new mongoose.Schema({
     min: [1, 'Rating must be at least 1'], 
     max: [5, 'Rating cannot exceed 5'] 
   },
+	rating_count: {
+		type: Number,
+		default: 0,
+		min: [0, 'Rating count cannot be negative']
+	},
   color: { 
     type: String, 
     default: '', 
@@ -207,11 +212,11 @@ const productSchema = new mongoose.Schema({
     default: 'Customized can be as per requirement.', 
     trim: true 
   },
-  note: { 
-    type: String, 
-    default: 'If a board is required, we use MDF instead of plywood', 
-    trim: true 
-  },
+	note: { 
+		type: String, 
+		default: '', 
+		trim: true 
+	},
   fabric_color: { 
     type: String, 
     default: '', 

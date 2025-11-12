@@ -105,6 +105,7 @@ router.post('/products', authenticateToken, adminAuth, [
   body('rating').optional().isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1-5'),
   body('category').notEmpty().trim().withMessage('Category is required'),
   body('img1').optional(),  // Additional fields for validation (optional)
+  body('note').optional().trim(),
   body('color').optional().trim(),
   body('dimensions').optional().trim(),
   body('mattress_size').optional().trim(), // New
