@@ -117,6 +117,58 @@ router.get('/:id', optionalAuth, async (req, res) => {
   }
 });
 
+// ✅ Get related products by category (Public) - NEW ENDPOINT
+// Returns products from the same category, excluding the current product
+router.get('/related/:category', optionalAuth, async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { excludeId, limit = 6 } = req.query;
+    
+    console.log('🔍 Fetching related products for category:', category);
+    if (excludeId) {
+      console.log('   Excluding product ID:', excludeId);
+    }
+    
+    // Build query to find products in the same category
+    let query = { category: category };
+    
+    // Exclude the current product if provided
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    
+    // Fetch related products, sorted by newest first, limited to avoid too many results
+    const relatedProducts = await Product.find(query)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+    
+    console.log(`✅ Found ${relatedProducts.length} related products for category: ${category}`);
+    
+    res.status(200).json({
+      relatedProducts,
+      category,
+      count: relatedProducts.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Get related products error:', error);
+    
+    // Handle invalid ObjectId in excludeId
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        message: 'Invalid product ID',
+        status: 400
+      });
+    }
+    
+    res.status(500).json({
+      message: 'Something went wrong while fetching related products',
+      error: error.message,
+      status: 500
+    });
+  }
+});
+
 // ✅ Get products by category (Public) - DEPRECATED in favor of query param
 // This route is kept for backward compatibility
 router.get('/category/:category', optionalAuth, async (req, res) => {

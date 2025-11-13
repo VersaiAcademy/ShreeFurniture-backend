@@ -99,6 +99,7 @@ app.use("/api/products", require("./routes/products"));
 app.use("/api/cart", require("./routes/cart"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/address", require("./routes/address"));
+app.use("/api/users", require("./routes/users"));
 app.use("/api/upload", require("./routes/upload"));
 app.use("/api/razorpay", require("./routes/razorpay"));
 

@@ -302,48 +302,46 @@ const cartSchema = new mongoose.Schema({
 
 // Delivery Address Schema
 const deliveryAddressSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  mob1: {
-    type: Number,
-    required: true
-  },
-  mob2: {
-    type: Number,
-    default: null
-  },
-  postalcode: {
-    type: Number,
-    required: true
-  },
-  address: {
-    type: String,
-    required: true
-  },
-  area: {
-    type: String,
-    required: true
-  },
-  landmark: {
-    type: String,
-    required: true
-  },
-  city: {
-    type: String,
-    required: true
-  },
-  state: {
-    type: String,
-    required: true
-  }
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  mob1: {
+    type: Number,
+    required: [true, 'Phone number is required']
+  },
+  mob2: {
+    type: Number,
+    default: null
+  },
+  postalcode: {
+    type: Number,
+    required: [true, 'Postal code is required']
+  },
+  address: {
+    type: String,
+    required: [true, 'Address is required']
+  },
+  area: {
+    type: String,
+    required: [true, 'Area/Locality is required']
+  },
+  landmark: {
+    type: String,
+    default: null
+  },
+  city: {
+    type: String,
+    required: [true, 'City is required']
+  },
+  state: {
+    type: String,
+    required: [true, 'State is required']
+  }
 }, {
-  timestamps: true
-});
-
-// Order Schema
+  timestamps: true
+});// Order Schema
 const orderSchema = new mongoose.Schema({
   product: {
     type: mongoose.Schema.Types.ObjectId,

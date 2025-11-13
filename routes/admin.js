@@ -362,15 +362,13 @@ router.get('/orders', authenticateToken, adminAuth, async (req, res) => {
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    const orders = await Order.find(query)
-      .populate('product', 'pname img1 price')
-      .populate('user', 'username email first_name last_name')
-      .populate('address', 'address city state postalcode mob1')
-      .skip(skip)
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
-    
-    const total = await Order.countDocuments(query);
+    const orders = await Order.find(query)
+      .populate('product', 'pname img1 price')
+      .populate('user', 'username email first_name last_name phone')
+      .populate('address', 'address_line1 address_line2 city state zip phone')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });    const total = await Order.countDocuments(query);
     
     res.status(200).json({
       orders,
@@ -408,15 +406,13 @@ router.put('/orders/:id', authenticateToken, adminAuth, [
 
     const { status } = req.body;
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).populate('product', 'pname img1 price')
-     .populate('user', 'username email first_name last_name')
-     .populate('address', 'address city state postalcode mob1');
-
-    if (!order) {
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate('product', 'pname img1 price')
+     .populate('user', 'username email first_name last_name phone')
+     .populate('address', 'address_line1 address_line2 city state zip phone');    if (!order) {
       return res.status(404).json({
         message: 'Order not found',
         status: 404

@@ -264,8 +264,8 @@ router.get('/admin/all', authenticateToken, async (req, res) => {
   try {
     const orders = await Order.find()
       .populate('product', 'pname pdesc img1 price offer brand')
-      .populate('address', 'address area city state postalcode mob1')
-      .populate('user', 'username first_name last_name email')
+      .populate('address', 'address_line1 address_line2 city state zip phone')
+      .populate('user', 'username first_name last_name email phone')
       .sort({ createdAt: -1 });
 
     res.status(200).json(orders);
