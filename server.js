@@ -5,7 +5,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 const app = express();
 
 /* ================================================
@@ -142,8 +142,16 @@ app.use((err, req, res, next) => {
    ✅ MongoDB Connection & Server Start
    ================================================ */
 const MONGO_URI = process.env.MONGO_URI;
+
+// Debug logging
+console.log('🔧 Environment check:');
+console.log('   NODE_ENV:', process.env.NODE_ENV);
+console.log('   MONGO_URI exists:', !!MONGO_URI);
+console.log('   MONGO_URI value:', MONGO_URI ? MONGO_URI.substring(0, 50) + '...' : 'undefined');
+
 if (!MONGO_URI) {
   console.error("❌ Missing MONGO_URI in .env");
+  console.error("📝 Available env vars:", Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('mongo')));
   process.exit(1);
 }
 
