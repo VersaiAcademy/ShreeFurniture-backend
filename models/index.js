@@ -187,6 +187,13 @@ const productSchema = new mongoose.Schema({
     trim: true
   },
 
+  // ✅ Size-specific custom URLs for product navigation
+  size_urls: {
+    type: Map,
+    of: String,
+    default: new Map(),
+  },
+
   features: { 
     type: String, 
     default: '', 

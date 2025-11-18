@@ -137,15 +137,13 @@ router.post('/products', authenticateToken, adminAuth, [
     const {
       pname, pdesc, price, offer, stock_count,
       material, warranty, brand, rating, color,
-      category, dimensions, dimensions_cm, sku, finish, storage, size, seater,
-      features, pack_content, delivery_condition, dispatch_in, customization, note,
-      fabric_color, design, img1, img2, img3, img4, img5,
-      stone_finish_image, stone_finish_img2, stone_finish_img3, stone_finish_img4,
-      natural_finish_image, natural_finish_img2, natural_finish_img3, natural_finish_img4,
-      mattress_size, caring, foam, armrest, shape, product_quantity, quantity, leg_material
-    } = req.body;
-
-    // ⚠️ Use the spread operator and trim/parse data where necessary
+      category, dimensions, dimensions_cm, sku, finish, storage, size, seater,
+      features, pack_content, delivery_condition, dispatch_in, customization, note,
+      fabric_color, design, img1, img2, img3, img4, img5,
+      stone_finish_image, stone_finish_img2, stone_finish_img3, stone_finish_img4,
+      natural_finish_image, natural_finish_img2, natural_finish_img3, natural_finish_img4,
+      mattress_size, caring, size_urls, foam, armrest, shape, product_quantity, quantity, leg_material
+    } = req.body;    // ⚠️ Use the spread operator and trim/parse data where necessary
     const product = new Product({
       // Core fields
       pname: pname.trim(),
@@ -189,17 +187,16 @@ router.post('/products', authenticateToken, adminAuth, [
       note: note ? note.trim() : 'If a board is required, we use MDF instead of plywood',
       fabric_color: fabric_color ? fabric_color.trim() : '',
       design: design ? design.trim() : 'Modern',
-      mattress_size: mattress_size ? mattress_size.trim() : '', // NEW
-      caring: caring ? caring.trim() : '', // NEW
-      foam: foam ? foam.trim() : '',
-      armrest: armrest ? armrest.trim() : '',
-      shape: shape ? shape.trim() : '',
-      product_quantity: product_quantity ? product_quantity.trim() : '1 Unit',
-      quantity: quantity ? quantity.trim() : '',
-      leg_material: leg_material ? leg_material.trim() : '',
-    });
-
-    await product.save();
+      mattress_size: mattress_size ? mattress_size.trim() : '', // NEW
+      caring: caring ? caring.trim() : '', // NEW
+      size_urls: size_urls || new Map(), // Size-specific custom URLs
+      foam: foam ? foam.trim() : '',
+      armrest: armrest ? armrest.trim() : '',
+      shape: shape ? shape.trim() : '',
+      product_quantity: product_quantity ? product_quantity.trim() : '1 Unit',
+      quantity: quantity ? quantity.trim() : '',
+      leg_material: leg_material ? leg_material.trim() : '',
+    });    await product.save();
 
     console.log('✅ Product created successfully:', product._id);
 
