@@ -87,16 +87,26 @@ const productSchema = new mongoose.Schema({
   img5: { type: String, default: '' },
 
   // ✅ Stone Finish Variant Images (Max 4)
-  stone_finish_image: { type: String, default: '' }, // Stone 1 (main variant image)
-  stone_finish_img2: { type: String, default: '' },
-  stone_finish_img3: { type: String, default: '' },
-  stone_finish_img4: { type: String, default: '' },
 
-  // ✅ Natural Finish Variant Images (Max 4)
-  natural_finish_image: { type: String, default: '' }, // Natural 1 (main variant image)
-  natural_finish_img2: { type: String, default: '' },
-  natural_finish_img3: { type: String, default: '' },
-  natural_finish_img4: { type: String, default: '' },
+  // ✅ Stone Finish Variant Images (Max 8)
+  stone_finish_image: { type: String, default: '' }, // Stone 1 (main variant image)
+  stone_finish_img2: { type: String, default: '' },
+  stone_finish_img3: { type: String, default: '' },
+  stone_finish_img4: { type: String, default: '' },
+  stone_finish_img5: { type: String, default: '' },
+  stone_finish_img6: { type: String, default: '' },
+  stone_finish_img7: { type: String, default: '' },
+  stone_finish_img8: { type: String, default: '' },
+
+  // ✅ Natural Finish Variant Images (Max 8)
+  natural_finish_image: { type: String, default: '' }, // Natural 1 (main variant image)
+  natural_finish_img2: { type: String, default: '' },
+  natural_finish_img3: { type: String, default: '' },
+  natural_finish_img4: { type: String, default: '' },
+  natural_finish_img5: { type: String, default: '' },
+  natural_finish_img6: { type: String, default: '' },
+  natural_finish_img7: { type: String, default: '' },
+  natural_finish_img8: { type: String, default: '' },
   
   // Basic Product Information
   material: { 
@@ -557,14 +567,15 @@ const Wishlist = mongoose.model('Wishlist', wishlistSchema);
 const Admin = mongoose.model('Admin', adminSchema);
 
 module.exports = {
-  User,
-  Product,
-  Cart,
-  DeliveryAddress,
-  Order,
-  CancelItem,
-  Transaction,
-  ContactUs,
-  ReviewSite,
-  Admin
+  User,
+  Product,
+  Cart,
+  DeliveryAddress,
+  Order,
+  CancelItem,
+  Transaction,
+  ContactUs,
+  ReviewSite,
+  Admin,
+  Wishlist
 };
