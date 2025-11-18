@@ -454,6 +454,29 @@ const contactUsSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Wishlist Schema
+const wishlistSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true
+  },
+  addedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
+});
+
+// Ensure one user cannot add same product twice
+wishlistSchema.index({ user: 1, product: 1 }, { unique: true });
+
 // Review Site Schema
 const reviewSiteSchema = new mongoose.Schema({
   name: {
@@ -530,6 +553,7 @@ const CancelItem = mongoose.model('CancelItem', cancelItemSchema);
 const Transaction = mongoose.model('Transaction', transactionSchema);
 const ContactUs = mongoose.model('ContactUs', contactUsSchema);
 const ReviewSite = mongoose.model('ReviewSite', reviewSiteSchema);
+const Wishlist = mongoose.model('Wishlist', wishlistSchema);
 const Admin = mongoose.model('Admin', adminSchema);
 
 module.exports = {

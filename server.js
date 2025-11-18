@@ -12,9 +12,7 @@ const app = express();
    ✅ CORS Configuration (Frontend + Admin + Local)
    ================================================ */
 const allowedOrigins = [
-  "https://shree-furniture-versai.vercel.app",
-  "https://www.srifurniturevillage.com/", 
-  "https://admin.srifurniturevillage.com/",// Frontend (Vercel)
+  "https://shree-furniture-versai.vercel.app", // Frontend (Vercel)
   "https://shree-furniture-versai-v2ee.vercel.app", // Admin (Vercel)
   "http://localhost:5173", // Vite (Frontend local)
   "http://localhost:3000", // React (Admin local)
@@ -99,6 +97,7 @@ app.use("/api/products", require("./routes/products"));
 
 // Authenticated user routes
 app.use("/api/cart", require("./routes/cart"));
+app.use("/api/wishlist", require("./routes/wishlist"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/address", require("./routes/address"));
 app.use("/api/users", require("./routes/users"));
