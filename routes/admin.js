@@ -189,7 +189,14 @@ router.post('/products', authenticateToken, adminAuth, [
       design: design ? design.trim() : 'Modern',
       mattress_size: mattress_size ? mattress_size.trim() : '', // NEW
       caring: caring ? caring.trim() : '', // NEW
-      size_urls: size_urls || new Map(), // Size-specific custom URLs
+      // Accept both legacy `size_urls` (map/object) and new `sizeUrls` (array)
+      sizeUrls: (
+        Array.isArray(req.body.sizeUrls)
+          ? req.body.sizeUrls
+          : (size_urls && typeof size_urls === 'object'
+              ? Object.entries(size_urls).map(([label, url]) => ({ label, url }))
+              : [])
+      ),
       foam: foam ? foam.trim() : '',
       armrest: armrest ? armrest.trim() : '',
       shape: shape ? shape.trim() : '',
@@ -250,7 +257,7 @@ router.put('/products/:id', authenticateToken, adminAuth, async (req, res) => {
     // Mongoose's findByIdAndUpdate will apply schema defaults/validation to provided fields.
     const updateData = {};
     
-    // Iterate over req.body to include all fields, applying trimming where appropriate
+  // Iterate over req.body to include all fields, applying trimming where appropriate
     for (const key in req.body) {
       // Check if the key exists in the productSchema paths (optional, but good practice)
       if (Product.schema.path(key)) {
@@ -264,6 +271,14 @@ router.put('/products/:id', authenticateToken, adminAuth, async (req, res) => {
         }
       }
     }
+
+    // If legacy `size_urls` object was passed, convert to `sizeUrls` array
+    if (req.body.size_urls && !req.body.sizeUrls) {
+      const possible = req.body.size_urls || {};
+      if (typeof possible === 'object' && !Array.isArray(possible)) {
+        updateData.sizeUrls = Object.entries(possible).map(([label, url]) => ({ label, url }));
+      }
+    }
 
     // Handle numerical fields that might be empty strings (which Mongoose doesn't auto-cast)
     if (updateData.price === '') updateData.price = null;

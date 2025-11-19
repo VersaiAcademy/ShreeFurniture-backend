@@ -59,8 +59,17 @@ router.get('/', optionalAuth, async (req, res) => {
       console.log(`   Category: "${category}" - Found ${products.length} exact matches`);
     }
     
+    // Normalize sizeUrls for each product in the list
+    const normalizedProducts = products.map((p) => {
+      const po = p.toObject ? p.toObject() : p;
+      if (!po.sizeUrls && po.size_urls && typeof po.size_urls === 'object') {
+        po.sizeUrls = Object.entries(po.size_urls).map(([label, url]) => ({ label, url }));
+      }
+      return po;
+    });
+
     res.status(200).json({
-      products,
+      products: normalizedProducts,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / parseInt(limit)),
@@ -96,7 +105,15 @@ router.get('/:id', optionalAuth, async (req, res) => {
     }
     
     console.log('✅ Product found:', product.pname);
-    res.status(200).json(product);
+
+    // Ensure backward compatibility: if product has legacy `size_urls` map, convert
+    // it to `sizeUrls` array so frontend can read consistently.
+    let productObj = product.toObject ? product.toObject() : product;
+    if (!productObj.sizeUrls && productObj.size_urls && typeof productObj.size_urls === 'object') {
+      productObj.sizeUrls = Object.entries(productObj.size_urls).map(([label, url]) => ({ label, url }));
+    }
+
+    res.status(200).json(productObj);
     
   } catch (error) {
     console.error('❌ Get product error:', error);
