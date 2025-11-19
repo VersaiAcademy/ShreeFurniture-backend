@@ -29,7 +29,6 @@ const adminAuth = async (req, res, next) => {
     }
 
     return res.status(403).json({
-      message: 'Access denied. Admin privileges required.',
       status: 403
     });
   } catch (error) {
@@ -55,10 +54,18 @@ router.get('/products', authenticateToken, adminAuth, async (req, res) => {
         { brand: { $regex: search, $options: 'i' } }
       ];
     }
+      stone_finish_img5: stone_finish_img5 || '',
+      stone_finish_img6: stone_finish_img6 || '',
+      stone_finish_img7: stone_finish_img7 || '',
+      stone_finish_img8: stone_finish_img8 || '',
     
     if (category) {
       query.category = { $regex: category, $options: 'i' };
     }
+      natural_finish_img5: natural_finish_img5 || '',
+      natural_finish_img6: natural_finish_img6 || '',
+      natural_finish_img7: natural_finish_img7 || '',
+      natural_finish_img8: natural_finish_img8 || '',
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
@@ -110,7 +117,8 @@ router.post('/products', authenticateToken, adminAuth, [
   body('dimensions').optional().trim(),
   body('mattress_size').optional().trim(), // New
   body('caring').optional().trim(), // New
-  body('stone_finish_image').optional().isURL(),
+  body('stone_finish_image').optional({ checkFalsy: true }).isURL(),
+  body('natural_finish_image').optional({ checkFalsy: true }).isURL(),
   // No need to validate img2-img5 and other variant images, they are handled by mongoose defaults or optional data
 ], async (req, res) => {
   try {
@@ -127,6 +135,16 @@ router.post('/products', authenticateToken, adminAuth, [
 
     console.log('📦 Creating product with data:', req.body);
 
+    // Debug: Log incoming variant image fields to diagnose truncated uploads
+    console.log('🔍 Incoming stone finish fields:', {
+      stone_finish_image, stone_finish_img2, stone_finish_img3, stone_finish_img4,
+      stone_finish_img5, stone_finish_img6, stone_finish_img7, stone_finish_img8
+    });
+    console.log('🔍 Incoming natural finish fields:', {
+      natural_finish_image, natural_finish_img2, natural_finish_img3, natural_finish_img4,
+      natural_finish_img5, natural_finish_img6, natural_finish_img7, natural_finish_img8
+    });
+
     // Custom validation: At least one variant image is required
     if (!req.body.stone_finish_image && !req.body.natural_finish_image) {
       return res.status(400).json({
@@ -141,7 +159,9 @@ router.post('/products', authenticateToken, adminAuth, [
       features, pack_content, delivery_condition, dispatch_in, customization, note,
       fabric_color, design, img1, img2, img3, img4, img5,
       stone_finish_image, stone_finish_img2, stone_finish_img3, stone_finish_img4,
+      stone_finish_img5, stone_finish_img6, stone_finish_img7, stone_finish_img8,
       natural_finish_image, natural_finish_img2, natural_finish_img3, natural_finish_img4,
+      natural_finish_img5, natural_finish_img6, natural_finish_img7, natural_finish_img8,
       mattress_size, caring, size_urls, foam, armrest, shape, product_quantity, quantity, leg_material
     } = req.body;    // ⚠️ Use the spread operator and trim/parse data where necessary
     const product = new Product({
@@ -157,18 +177,26 @@ router.post('/products', authenticateToken, adminAuth, [
       rating: rating ? parseInt(rating) : 5,
       category: category.trim(),
       
-      // Main Images
-      img1: img1, img2: img2 || '', img3: img3 || '', img4: img4 || '', img5: img5 || '',
+  // Main Images
+  img1: img1, img2: img2 || '', img3: img3 || '', img4: img4 || '', img5: img5 || '',
 
-      // Variant Images (new fields)
-      stone_finish_image: stone_finish_image || '',
-      stone_finish_img2: stone_finish_img2 || '',
-      stone_finish_img3: stone_finish_img3 || '',
-      stone_finish_img4: stone_finish_img4 || '',
-      natural_finish_image: natural_finish_image || '',
-      natural_finish_img2: natural_finish_img2 || '',
-      natural_finish_img3: natural_finish_img3 || '',
-      natural_finish_img4: natural_finish_img4 || '',
+  // Variant Images (new fields, up to 8)
+  stone_finish_image: stone_finish_image || '',
+  stone_finish_img2: stone_finish_img2 || '',
+  stone_finish_img3: stone_finish_img3 || '',
+  stone_finish_img4: stone_finish_img4 || '',
+  stone_finish_img5: stone_finish_img5 || '',
+  stone_finish_img6: stone_finish_img6 || '',
+  stone_finish_img7: stone_finish_img7 || '',
+  stone_finish_img8: stone_finish_img8 || '',
+  natural_finish_image: natural_finish_image || '',
+  natural_finish_img2: natural_finish_img2 || '',
+  natural_finish_img3: natural_finish_img3 || '',
+  natural_finish_img4: natural_finish_img4 || '',
+  natural_finish_img5: natural_finish_img5 || '',
+  natural_finish_img6: natural_finish_img6 || '',
+  natural_finish_img7: natural_finish_img7 || '',
+  natural_finish_img8: natural_finish_img8 || '',
 
       // Other Details (new and existing)
       color: color ? color.trim() : '',
@@ -289,6 +317,26 @@ router.put('/products/:id', authenticateToken, adminAuth, async (req, res) => {
     if (updateData.rating === '' || updateData.rating === undefined) {
         updateData.rating = product.rating || 5; 
     }
+
+    // Debug: Log incoming update image fields for troubleshooting
+    console.log('🔁 Update payload image fields preview:', {
+      stone_finish_image: updateData.stone_finish_image,
+      stone_finish_img2: updateData.stone_finish_img2,
+      stone_finish_img3: updateData.stone_finish_img3,
+      stone_finish_img4: updateData.stone_finish_img4,
+      stone_finish_img5: updateData.stone_finish_img5,
+      stone_finish_img6: updateData.stone_finish_img6,
+      stone_finish_img7: updateData.stone_finish_img7,
+      stone_finish_img8: updateData.stone_finish_img8,
+      natural_finish_image: updateData.natural_finish_image,
+      natural_finish_img2: updateData.natural_finish_img2,
+      natural_finish_img3: updateData.natural_finish_img3,
+      natural_finish_img4: updateData.natural_finish_img4,
+      natural_finish_img5: updateData.natural_finish_img5,
+      natural_finish_img6: updateData.natural_finish_img6,
+      natural_finish_img7: updateData.natural_finish_img7,
+      natural_finish_img8: updateData.natural_finish_img8
+    });
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,

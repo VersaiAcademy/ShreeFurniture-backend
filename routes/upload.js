@@ -37,26 +37,35 @@ if (useCloudinary) {
     }
   });
 
-  // Multiple upload - Cloudinary
-  router.post('/multiple', authenticateToken, cloudinaryUpload.array('images', 5), async (req, res) => {
+  // Multiple upload - Cloudinary (with error-catcher middleware)
+  router.post('/multiple', authenticateToken, (req, res, next) => {
+    // run multer middleware and catch multer errors explicitly
+    cloudinaryUpload.array('images', 8)(req, res, function (err) {
+      if (err) {
+        console.error('Multer/Cloudinary middleware error:', err && err.stack ? err.stack : err);
+        // Multer file limit or file size errors may surface here
+        const msg = err.message || 'File upload middleware error';
+        return res.status(500).json({ message: msg, error: err.code || msg, status: 500 });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       if (!req.files || req.files.length === 0) {
+        console.warn('Upload /multiple called but no files received');
         return res.status(400).json({ message: 'No image files provided', status: 400 });
       }
+
       console.log('📸 Multiple upload received files count:', req.files.length);
-      console.log('First file sample:', {
-        originalname: req.files[0]?.originalname,
-        mimetype: req.files[0]?.mimetype,
-        size: req.files[0]?.size,
-        filename: req.files[0]?.filename,
-        path: req.files[0]?.path
-      });
+      console.log('Request content-length:', req.headers['content-length']);
+      console.log('Files sample (first 3):', req.files.slice(0,3).map(f => ({ originalname: f.originalname, mimetype: f.mimetype, size: f.size, filename: f.filename, path: f.path })));
+
       const imageUrls = req.files.map(file => file.path);
       const publicIds = req.files.map(file => file.filename);
-      res.status(200).json({ message: 'Images uploaded successfully', imageUrls, publicIds, status: 200 });
+      return res.status(200).json({ message: 'Images uploaded successfully', imageUrls, publicIds, status: 200 });
     } catch (error) {
-      console.error('Cloudinary multiple upload error:', error);
-      res.status(500).json({ message: 'Something went wrong while uploading images', error: error.message, status: 500 });
+      console.error('Cloudinary multiple upload error (handler):', error && error.stack ? error.stack : error);
+      return res.status(500).json({ message: 'Something went wrong while uploading images', error: error.message, status: 500 });
     }
   });
 
@@ -77,7 +86,7 @@ if (useCloudinary) {
 
   const uploadLocal = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024, files: 8 }, // 5MB per file, up to 8 files
     fileFilter: (req, file, cb) => {
       if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
       else cb(new Error('Only image files are allowed'));
@@ -98,15 +107,26 @@ if (useCloudinary) {
   });
 
   // Multiple upload - Local
-  router.post('/multiple', authenticateToken, uploadLocal.array('images', 5), async (req, res) => {
+  // Local multiple upload with explicit multer error handling and logging
+  router.post('/multiple', authenticateToken, (req, res, next) => {
+    uploadLocal.array('images', 8)(req, res, function (err) {
+      if (err) {
+        console.error('Multer local middleware error:', err && err.stack ? err.stack : err);
+        const msg = err.message || 'File upload middleware error';
+        return res.status(500).json({ message: msg, error: err.code || msg, status: 500 });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'No image files provided', status: 400 });
+      console.log('Local upload received files count:', req.files.length);
       const imageUrls = req.files.map(f => `${BASE_URL}/uploads/banners/${f.filename}`);
       const filenames = req.files.map(f => f.filename);
       return res.status(200).json({ message: 'Images uploaded successfully', imageUrls, filenames, status: 200 });
     } catch (error) {
-      console.error('Local multiple upload error:', error);
-      res.status(500).json({ message: 'Something went wrong while uploading images', status: 500 });
+      console.error('Local multiple upload error (handler):', error && error.stack ? error.stack : error);
+      return res.status(500).json({ message: 'Something went wrong while uploading images', status: 500 });
     }
   });
 }
