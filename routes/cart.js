@@ -82,7 +82,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const userId = req.user._id;
     
     const cartItems = await Cart.find({ user: userId })
-      .populate('product', 'pname pdesc img1 img2 img3 img4 img5 price offer stock_count brand rating')
+      .populate('product', 'pname pdesc img1 img2 img3 img4 img5 natural_finish_image natural_finish_img2 stone_finish_image stone_finish_img2 image images price offer stock_count brand rating')
       .sort({ createdAt: -1 });
 
     res.status(200).json(cartItems);

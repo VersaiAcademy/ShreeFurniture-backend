@@ -5,6 +5,106 @@ const { generateToken, generateAdminToken, authenticateToken } = require('../mid
 
 const router = express.Router();
 
+// Google OAuth - Redirect to Google consent
+router.get('/google', async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI; // e.g. https://your-backend.com/api/auth/google/callback
+    if (!clientId || !redirectUri) return res.status(500).send('Google OAuth not configured');
+
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', 'openid email profile');
+    authUrl.searchParams.set('access_type', 'offline');
+    authUrl.searchParams.set('prompt', 'select_account');
+
+    res.redirect(authUrl.toString());
+  } catch (err) {
+    console.error('Google redirect error:', err);
+    res.status(500).json({ message: 'Google OAuth redirect failed' });
+  }
+});
+
+// Google OAuth callback - exchange code, get user info, create/find user, issue JWT, redirect to frontend
+router.get('/google/callback', async (req, res) => {
+  try {
+    const code = req.query.code;
+    if (!code) return res.status(400).send('Missing code');
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+        grant_type: 'authorization_code'
+      })
+    }).then(r => r.json());
+
+    if (tokenRes.error) {
+      console.error('Token exchange error', tokenRes);
+      return res.status(400).json({ message: 'Token exchange failed', error: tokenRes });
+    }
+
+    const accessToken = tokenRes.access_token;
+    const idToken = tokenRes.id_token;
+
+    // Use access token to get userinfo
+    const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo?alt=json', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    }).then(r => r.json());
+
+    if (!userInfo || !userInfo.email) {
+      console.error('No userinfo from Google:', userInfo);
+      return res.status(400).json({ message: 'Failed to fetch user info from Google' });
+    }
+
+    // Find or create user by email
+    let user = await User.findOne({ email: userInfo.email.toLowerCase() });
+    if (!user) {
+      // create unique username from name or email
+      let baseUsername = (userInfo.name || userInfo.email.split('@')[0] || 'user').toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+      let username = baseUsername;
+      let suffix = 1;
+      while (await User.findOne({ username })) {
+        username = `${baseUsername}${suffix++}`;
+      }
+
+      const [firstName, ...rest] = (userInfo.name || '').split(' ');
+      const lastName = rest.join(' ') || '';
+
+      // create user with random password (satisfies schema). Mark password as random.
+      const randomPassword = Math.random().toString(36).slice(-8);
+      user = new User({
+        username,
+        first_name: firstName || username,
+        last_name: lastName,
+        email: userInfo.email.toLowerCase(),
+        password: randomPassword
+      });
+      await user.save();
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    // Redirect to frontend with token (short-lived in URL) - frontend should consume and remove it
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const redirectTo = new URL('/oauth-callback', frontendUrl);
+    redirectTo.searchParams.set('token', token);
+    redirectTo.searchParams.set('uid', user._id.toString());
+
+    res.redirect(redirectTo.toString());
+  } catch (err) {
+    console.error('Google callback error:', err);
+    res.status(500).json({ message: 'Google OAuth callback failed', error: err.message });
+  }
+});
+
 // Register user (accept both minimal and extended payloads)
 router.post('/signup', [
   body('email').isEmail().withMessage('Please provide a valid email'),
