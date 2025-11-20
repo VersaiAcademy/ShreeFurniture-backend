@@ -90,6 +90,102 @@ router.get('/products', authenticateToken, adminAuth, async (req, res) => {
   }
 });
 
+// ✅ Get all registered users (Admin view)
+router.get('/users', authenticateToken, adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 100, search } = req.query;
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Select fields that actually exist on User schema
+    const rawUsers = await User.find(query)
+      .select('username first_name last_name email createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await User.countDocuments(query);
+
+    // Fetch delivery addresses for these users in one query to surface phone numbers
+    const userIds = rawUsers.map(u => u._id);
+    const DeliveryAddress = require('../models').DeliveryAddress || require('mongoose').model('DeliveryAddress');
+    let addresses = [];
+    try {
+      addresses = await DeliveryAddress.find({ user: { $in: userIds } }).select('user mob1');
+    } catch (addrErr) {
+      console.error('DeliveryAddress lookup error:', addrErr.message);
+    }
+
+    const addrMap = addresses.reduce((acc, a) => {
+      acc[a.user.toString()] = a.mob1;
+      return acc;
+    }, {});
+
+    // Map users to a consistent shape for the admin frontend
+    const users = rawUsers.map(u => ({
+      _id: u._id,
+      name: `${u.first_name || ''}${u.first_name && u.last_name ? ' ' : ''}${u.last_name || u.username || ''}`.trim(),
+      username: u.username,
+      email: u.email,
+      phone: addrMap[u._id.toString()] || null,
+      createdAt: u.createdAt
+    }));
+
+    res.status(200).json({
+      users,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalUsers: total
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get users error:', error);
+    res.status(500).json({ message: 'Failed to fetch users', error: error.message, status: 500 });
+  }
+});
+
+// ✅ Get single user details (Admin)
+router.get('/users/:id', authenticateToken, adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found', status: 404 });
+
+    const DeliveryAddress = require('../models').DeliveryAddress || require('mongoose').model('DeliveryAddress');
+    const address = await DeliveryAddress.findOne({ user: id }).select('-__v');
+
+    // Get recent orders for this user
+    const recentOrders = await Order.find({ user: id })
+      .select('order_id total status createdAt')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    const totalOrders = await Order.countDocuments({ user: id });
+
+    res.status(200).json({
+      user,
+      address,
+      recentOrders,
+      totalOrders,
+      status: 200
+    });
+  } catch (error) {
+    console.error('Get admin user details error:', error);
+    res.status(500).json({ message: 'Failed to fetch user details', error: error.message, status: 500 });
+  }
+});
+
 // 🟢 Create product (Admin) - UPDATED TO INCLUDE ALL NEW FIELDS
 router.post('/products', authenticateToken, adminAuth, [
   body('pname').notEmpty().trim().withMessage('Product name is required'),

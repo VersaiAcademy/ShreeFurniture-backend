@@ -33,6 +33,7 @@ const authenticateToken = async (req, res, next) => {
       }
     } catch (adminError) {
       console.log('❌ Not an admin token, trying user token...');
+      if (adminError && adminError.message) console.log('   admin verify error:', adminError.message);
     }
 
     // ✅ If not admin, try to verify as User token
@@ -48,6 +49,7 @@ const authenticateToken = async (req, res, next) => {
         }
       } catch (userError) {
         console.log('❌ Not a user token either');
+        if (userError && userError.message) console.log('   user verify error:', userError.message);
       }
     }
 

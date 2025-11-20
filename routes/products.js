@@ -4,6 +4,21 @@ const { optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Debug: return distinct category values present in the products collection
+router.get('/distinct-categories', optionalAuth, async (req, res) => {
+  try {
+    console.log('🔍 Fetching distinct product categories for debugging');
+    const categories = await Product.distinct('category');
+    // Also include lowercased and slug forms for convenience
+    const slugify = (s) => String(s || '').toLowerCase().replace(/\s+/g, '-').replace(/\+/g, '').replace(/&/g, '');
+    const transformed = categories.map(c => ({ raw: c, lower: String(c || '').toLowerCase(), slug: slugify(c) }));
+    res.status(200).json({ count: categories.length, categories: transformed });
+  } catch (error) {
+    console.error('❌ Error fetching distinct categories:', error);
+    res.status(500).json({ message: 'Failed to fetch categories', error: error.message });
+  }
+});
+
 // ✅ Get all products with search and pagination (Public)
 router.get('/', optionalAuth, async (req, res) => {
   try {
@@ -20,9 +35,24 @@ router.get('/', optionalAuth, async (req, res) => {
       ];
     }
     
-    // ✅ STRICT Category filter - exact match only
+    // Category filter
     if (category) {
-      query.category = category;  // Changed from regex to strict equality
+      // Support comma-separated lists from frontend (e.g. category=A,B,C)
+      // Use case-insensitive exact-match regexes so 'Wooden Sofas', 'wooden sofas',
+      // and 'wooden-sofas' variants match DB values regardless of case.
+      const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (typeof category === 'string' && category.includes(',')) {
+        const parts = category.split(',').map(s => s.trim()).filter(Boolean);
+        if (parts.length > 0) {
+          // build regex exact-match (with i flag) for each part
+          const regexes = parts.map(p => new RegExp('^' + escapeRegex(p) + '$', 'i'));
+          query.category = { $in: regexes };
+        }
+      } else {
+        // single value - make it case-insensitive exact-match
+        const val = String(category).trim();
+        query.category = new RegExp('^' + escapeRegex(val) + '$', 'i');
+      }
     }
 
     // Brand filter
