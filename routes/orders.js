@@ -13,6 +13,12 @@ router.post('/', authenticateToken, [
   body('mode').optional().isIn(['cod', 'online']).withMessage('Mode must be cod or online')
 ], async (req, res) => {
   try {
+    console.debug('Create order - req.user:', req.user && {
+      _id: req.user._id,
+      email: req.user.email,
+      username: req.user.username || req.user.first_name
+    });
+    console.debug('Create order - body:', req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -23,6 +29,9 @@ router.post('/', authenticateToken, [
     }
 
     const { address, total, mode = 'cod' } = req.body;
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'User not authenticated', status: 401 });
+    }
     const userId = req.user._id;
 
     // Verify address exists and belongs to user
@@ -41,11 +50,17 @@ router.post('/', authenticateToken, [
     // Get user's cart items
     const cartItems = await Cart.find({ user: userId }).populate('product');
 
-    if (cartItems.length === 0) {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
       return res.status(400).json({
         message: 'Cart is empty',
         status: 400
       });
+    }
+
+    // Filter out any cart items that no longer have a product reference
+    const validCartItems = cartItems.filter(ci => ci && ci.product && ci.product._id);
+    if (validCartItems.length !== cartItems.length) {
+      console.warn(`Create order: removed ${cartItems.length - validCartItems.length} invalid cart items for user ${userId}`);
     }
 
     // Generate unique order ID
@@ -53,28 +68,44 @@ router.post('/', authenticateToken, [
 
     // Create orders for each cart item
     const orders = [];
-    for (const cartItem of cartItems) {
-      const order = new Order({
-        product: cartItem.product._id,
-        order_id: orderId,
-        user: userId,
-        address: address,
-        total: total,
-        mode: mode
-      });
-      
-      await order.save();
-      orders.push(order);
+    for (const cartItem of validCartItems) {
+      try {
+        const qty = Number.isFinite(Number(cartItem.qty)) ? Number(cartItem.qty) : 1;
 
-      // Update product stock
-      await Product.findByIdAndUpdate(
-        cartItem.product._id,
-        { $inc: { stock_count: -cartItem.qty } }
-      );
+        const order = new Order({
+          product: cartItem.product._id,
+          order_id: orderId,
+          user: userId,
+          address: address,
+          total: Number(total),
+          mode: mode
+        });
+
+        await order.save();
+        orders.push(order);
+
+        // Update product stock if product exists
+        if (cartItem.product && cartItem.product._id) {
+          await Product.findByIdAndUpdate(
+            cartItem.product._id,
+            { $inc: { stock_count: -qty } }
+          );
+        } else {
+          console.warn('Skipping stock update for missing product on cartItem:', cartItem._id);
+        }
+      } catch (innerErr) {
+        console.error('Error processing cartItem during order creation:', innerErr, { cartItem });
+        // continue with other items instead of failing entire order
+      }
     }
 
     // Clear cart after successful order
-    await Cart.deleteMany({ user: userId });
+    // Remove only the cart items that belong to this user
+    try {
+      await Cart.deleteMany({ user: userId });
+    } catch (delErr) {
+      console.warn('Failed to clear cart after order creation:', delErr);
+    }
 
     res.status(200).json({
       message: 'Order placed successfully. You will receive order within 7 days from today.',

@@ -89,8 +89,8 @@ router.get('/google/callback', async (req, res) => {
       await user.save();
     }
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate token (include _id and email in payload)
+    const token = generateToken(user);
 
     // Redirect to frontend with token (short-lived in URL) - frontend should consume and remove it
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -159,8 +159,8 @@ router.post('/signup', [
 
     await user.save();
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate token (include _id and email in payload)
+    const token = generateToken(user);
 
     res.status(201).json({
       message: 'User Created Successfully',
@@ -223,8 +223,8 @@ router.post('/login', [
       });
     }
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate token (include _id and email in payload)
+    const token = generateToken(user);
 
     res.status(200).json({
       message: 'Welcome To Wooden Store',
@@ -342,7 +342,7 @@ router.post('/admin/login', [
     }
 
     // ✅ Generate ADMIN token using generateAdminToken
-    const token = generateAdminToken(admin._id);
+    const token = generateAdminToken(admin);
 
     console.log('✅ Admin logged in successfully:', email);
 

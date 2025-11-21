@@ -415,24 +415,26 @@ const cancelItemSchema = new mongoose.Schema({
 
 // Transaction Schema
 const transactionSchema = new mongoose.Schema({
-  payment_id: {
-    type: String,
-    required: true
-  },
-  order_id: {
-    type: String,
-    required: true
-  },
-  signature: {
-    type: String,
-    required: true
-  },
-  amount: {
-    type: Number,
-    required: true
-  }
+  payment_id: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  order_id: {
+    type: String,
+    required: true
+  },
+  signature: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  amount: {
+    type: Number,
+    required: true
+  }
 }, {
-  timestamps: true
+  timestamps: true
 });
 
 // Contact Us Schema

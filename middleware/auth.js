@@ -22,34 +22,44 @@ const authenticateToken = async (req, res, next) => {
     try {
       const adminSecret = process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET;
       decoded = jwt.verify(token, adminSecret);
-      
+
       // Try to find admin by various possible ID fields
-      const adminId = decoded.adminId || decoded.userId || decoded.id;
+      const adminId = decoded.adminId || decoded._id || decoded.userId || decoded.id;
       principal = await Admin.findById(adminId).select('-password');
-      
+
       if (principal) {
         authType = 'admin';
-        console.log('✅ Admin authenticated:', principal.email);
+        // Minimal logging for admin auth
+        console.log('✅ Admin authenticated');
       }
     } catch (adminError) {
-      console.log('❌ Not an admin token, trying user token...');
-      if (adminError && adminError.message) console.log('   admin verify error:', adminError.message);
+      // Don't spam logs with stack traces for expected verify failures
+      // Try user token silently next
     }
 
     // ✅ If not admin, try to verify as User token
     if (!principal) {
       try {
         decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId || decoded.id;
-        principal = await User.findById(userId).select('-password');
-        
-        if (principal) {
+        const userId = decoded._id || decoded.userId || decoded.id;
+        const user = await User.findById(userId).select('-password');
+
+        if (user) {
           authType = 'user';
-          console.log('✅ User authenticated:', principal.username);
+          // Attach only a minimal user object to req.user (do NOT expose password)
+          req.user = {
+            _id: user._id,
+            username: user.username,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email
+          };
+          console.log('✅ User authenticated:', req.user.username || req.user.email || req.user._id);
+          // set principal for downstream admin check (if any)
+          principal = user;
         }
       } catch (userError) {
-        console.log('❌ Not a user token either');
-        if (userError && userError.message) console.log('   user verify error:', userError.message);
+        // silent fail for user token verification
       }
     }
 
@@ -61,7 +71,20 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    req.user = principal;
+    // If admin authenticated, attach minimal admin info
+    if (authType === 'admin' && principal) {
+      req.user = {
+        _id: principal._id,
+        name: principal.name || principal.email,
+        email: principal.email
+      };
+    }
+
+    // If user authenticated above, req.user is already set to decoded user info
+    if (authType === 'user' && req.user) {
+      // already attached
+    }
+
     req.authType = authType;
     next();
   } catch (error) {
@@ -82,10 +105,16 @@ const optionalAuth = async (req, res, next) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId || decoded.id;
+        const userId = decoded._id || decoded.userId || decoded.id;
         const user = await User.findById(userId).select('-password');
         if (user) {
-          req.user = user;
+          req.user = {
+            _id: user._id,
+            username: user.username,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email
+          };
           req.authType = 'user';
         }
       } catch (error) {
@@ -101,14 +130,35 @@ const optionalAuth = async (req, res, next) => {
 };
 
 // ✅ Generate JWT token for User
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const generateToken = (user) => {
+  // Accept either a user object or a user id
+  let payload = {};
+  if (!user) user = {};
+  if (typeof user === 'string' || typeof user === 'number') {
+    payload._id = String(user);
+  } else if (user._id) {
+    payload._id = String(user._id);
+    if (user.email) payload.email = user.email;
+    if (user.username) payload.username = user.username;
+  }
+
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // ✅ Generate JWT token for Admin
-const generateAdminToken = (adminId) => {
+const generateAdminToken = (admin) => {
   const secret = process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET;
-  return jwt.sign({ adminId, userId: adminId }, secret, { expiresIn: '7d' });
+  let payload = {};
+  if (!admin) admin = {};
+  if (typeof admin === 'string' || typeof admin === 'number') {
+    payload._id = String(admin);
+  } else if (admin._id) {
+    payload._id = String(admin._id);
+    if (admin.email) payload.email = admin.email;
+    if (admin.name) payload.name = admin.name;
+  }
+
+  return jwt.sign(payload, secret, { expiresIn: '7d' });
 };
 
 module.exports = {
