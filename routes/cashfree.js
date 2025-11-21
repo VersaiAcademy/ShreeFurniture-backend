@@ -78,13 +78,23 @@ router.post('/create', async (req, res) => {
     };
 
     let frontendBase = pickFrontendBase(process.env.FRONTEND_BASE_URL);
+    if (!frontendBase && req.headers.origin) {
+      frontendBase = req.headers.origin.split(',')[0].trim();
+    }
     if (!frontendBase) {
       frontendBase = `${req.protocol}://${req.get('host')}`;
     }
 
+    frontendBase = frontendBase.trim();
+
     if (!/^https?:\/\//i.test(frontendBase)) {
       frontendBase = `https://${frontendBase}`;
     }
+
+    if (frontendBase.startsWith('http://')) {
+      frontendBase = frontendBase.replace(/^http:\/\//i, 'https://');
+    }
+
     frontendBase = frontendBase.replace(/\/+$/, '');
 
     const payload = {
