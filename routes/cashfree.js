@@ -19,6 +19,7 @@ const router = express.Router();
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
 const REQUIRED_CASHFREE_BASE = 'https://api.cashfree.com/pg';
+const DEFAULT_FRONTEND_URL = (process.env.DEFAULT_FRONTEND_URL || 'https://shree-furniture-versai.vercel.app').replace(/\/+$/, '');
 const rawCashfreeBase = (process.env.CASHFREE_API_BASE || '').trim();
 const normalizedCashfreeBase = rawCashfreeBase.replace(/\/+$/, '');
 let CASHFREE_API_BASE = normalizedCashfreeBase || REQUIRED_CASHFREE_BASE;
@@ -82,7 +83,7 @@ router.post('/create', async (req, res) => {
       frontendBase = req.headers.origin.split(',')[0].trim();
     }
     if (!frontendBase) {
-      frontendBase = `${req.protocol}://${req.get('host')}`;
+      frontendBase = DEFAULT_FRONTEND_URL;
     }
 
     frontendBase = frontendBase.trim();
@@ -95,7 +96,8 @@ router.post('/create', async (req, res) => {
       frontendBase = frontendBase.replace(/^http:\/\//i, 'https://');
     }
 
-    frontendBase = frontendBase.replace(/\/+$/, '');
+    frontendBase = frontendBase.replace(/\/+$/, '') || DEFAULT_FRONTEND_URL;
+    console.log('↩️ Cashfree return_url origin:', frontendBase, '| env:', process.env.FRONTEND_BASE_URL, '| origin header:', req.headers.origin);
 
     const payload = {
       order_id: orderId,
