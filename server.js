@@ -10,25 +10,6 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
-/* ----------------------  CASHFREE CONFIG LOG  ------------------- */
-/*
-  NOTE: We use environment variables:
-   - CASHFREE_API_BASE (optional) e.g. https://sandbox.cashfree.com/pg
-   - CASHFREE_KEY_ID
-   - CASHFREE_KEY_SECRET
-   - FRONTEND_URL (optional) e.g. https://shree-furniture-versai.vercel.app
-*/
-if (process.env.CASHFREE_API_BASE || process.env.CASHFREE_KEY_ID || process.env.CASHFREE_KEY_SECRET) {
-  const cashfreeBase = (process.env.CASHFREE_API_BASE || '').trim() || 'undefined';
-  const normalizedCashfreeBase = cashfreeBase.replace(/\/+$/, '');
-  console.log('💡 Cashfree config check:', {
-    baseUrl: normalizedCashfreeBase,
-    hasKeyId: !!process.env.CASHFREE_KEY_ID,
-    hasKeySecret: !!process.env.CASHFREE_KEY_SECRET,
-    frontendUrl: !!process.env.FRONTEND_URL
-  });
-}
-
 /* ---------------------------  CONFIG  --------------------------- */
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const PORT = Number(process.env.PORT || 5000);
@@ -37,7 +18,6 @@ const PORT = Number(process.env.PORT || 5000);
 const allowedOrigins = [
   'https://shree-furniture-versai.vercel.app',
   'https://shree-furniture-versai-v2ee.vercel.app',
-  'https://www.srifurniturevillage.com',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
@@ -108,7 +88,7 @@ app.use('/api/address', require('./routes/address'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/razorpay', require('./routes/razorpay'));
-app.use('/api/cashfree', require('./routes/cashfree')); // our updated cashfree route
+app.use('/api/cashfree', require('./routes/cashfree'));
 app.use('/api/admin', require('./routes/admin'));
 
 /* ----------------------  PRODUCTION SPA SERVE  ------------------ */
