@@ -8,9 +8,6 @@ const router = express.Router();
 // ✅ Admin middleware to check if user is admin
 const adminAuth = async (req, res, next) => {
   try {
-    console.log('Admin Auth Check - authType:', req.authType);
-    console.log('Admin Auth Check - user:', req.user);
-
     // authenticateToken sets req.user (User or Admin) and req.authType
     if (req.authType === 'admin' && req.user && req.user._id) {
       req.admin = req.user;
@@ -66,8 +63,6 @@ router.get('/products', authenticateToken, adminAuth, async (req, res) => {
       .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments(query);
-    
-    console.log(`✅ Fetched ${products.length} products for admin`);
     
     res.status(200).json({
       products,
@@ -211,37 +206,12 @@ router.post('/products', authenticateToken, adminAuth, [
     // ✅ Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({
         message: 'Validation failed',
         errors: errors.array(),
         status: 400
       });
     }
-
-    console.log('📦 Creating product with data:', req.body);
-
-    // Debug: Log incoming variant image fields to diagnose truncated uploads
-    console.log('🔍 Incoming stone finish fields:', {
-      stone_finish_image: req.body.stone_finish_image,
-      stone_finish_img2: req.body.stone_finish_img2,
-      stone_finish_img3: req.body.stone_finish_img3,
-      stone_finish_img4: req.body.stone_finish_img4,
-      stone_finish_img5: req.body.stone_finish_img5,
-      stone_finish_img6: req.body.stone_finish_img6,
-      stone_finish_img7: req.body.stone_finish_img7,
-      stone_finish_img8: req.body.stone_finish_img8
-    });
-    console.log('🔍 Incoming natural finish fields:', {
-      natural_finish_image: req.body.natural_finish_image,
-      natural_finish_img2: req.body.natural_finish_img2,
-      natural_finish_img3: req.body.natural_finish_img3,
-      natural_finish_img4: req.body.natural_finish_img4,
-      natural_finish_img5: req.body.natural_finish_img5,
-      natural_finish_img6: req.body.natural_finish_img6,
-      natural_finish_img7: req.body.natural_finish_img7,
-      natural_finish_img8: req.body.natural_finish_img8
-    });
 
     // Custom validation: At least one variant image is required
     if (!req.body.stone_finish_image && !req.body.natural_finish_image) {
@@ -341,8 +311,6 @@ router.post('/products', authenticateToken, adminAuth, [
 
     await product.save();
 
-    console.log('✅ Product created successfully:', product._id);
-
     res.status(201).json({
       message: 'Product created successfully',
       product,
@@ -377,12 +345,9 @@ router.post('/products', authenticateToken, adminAuth, [
 // 🟢 Update product (Admin) - UPDATED TO HANDLE ALL NEW FIELDS
 router.put('/products/:id', authenticateToken, adminAuth, async (req, res) => {
   try {
-    console.log(`📝 Updating product ${req.params.id}`, req.body);
-    
     const product = await Product.findById(req.params.id);
     
     if (!product) {
-      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({
         message: 'Product not found',
         status: 404
@@ -425,33 +390,11 @@ router.put('/products/:id', authenticateToken, adminAuth, async (req, res) => {
       updateData.rating = product.rating || 5; 
     }
 
-    // Debug: Log incoming update image fields for troubleshooting
-    console.log('🔁 Update payload image fields preview:', {
-      stone_finish_image: updateData.stone_finish_image,
-      stone_finish_img2: updateData.stone_finish_img2,
-      stone_finish_img3: updateData.stone_finish_img3,
-      stone_finish_img4: updateData.stone_finish_img4,
-      stone_finish_img5: updateData.stone_finish_img5,
-      stone_finish_img6: updateData.stone_finish_img6,
-      stone_finish_img7: updateData.stone_finish_img7,
-      stone_finish_img8: updateData.stone_finish_img8,
-      natural_finish_image: updateData.natural_finish_image,
-      natural_finish_img2: updateData.natural_finish_img2,
-      natural_finish_img3: updateData.natural_finish_img3,
-      natural_finish_img4: updateData.natural_finish_img4,
-      natural_finish_img5: updateData.natural_finish_img5,
-      natural_finish_img6: updateData.natural_finish_img6,
-      natural_finish_img7: updateData.natural_finish_img7,
-      natural_finish_img8: updateData.natural_finish_img8
-    });
-
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
     );
-
-    console.log('✅ Product updated successfully:', updatedProduct._id);
 
     res.status(200).json({
       message: 'Product updated successfully',
@@ -486,12 +429,9 @@ router.put('/products/:id', authenticateToken, adminAuth, async (req, res) => {
 // ✅ Delete product (Admin)
 router.delete('/products/:id', authenticateToken, adminAuth, async (req, res) => {
   try {
-    console.log(`🗑️ Deleting product ${req.params.id}`);
-    
     const product = await Product.findById(req.params.id);
     
     if (!product) {
-      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({
         message: 'Product not found',
         status: 404
@@ -499,8 +439,6 @@ router.delete('/products/:id', authenticateToken, adminAuth, async (req, res) =>
     }
 
     await Product.findByIdAndDelete(req.params.id);
-
-    console.log('✅ Product deleted successfully:', req.params.id);
 
     res.status(200).json({
       message: 'Product deleted successfully',

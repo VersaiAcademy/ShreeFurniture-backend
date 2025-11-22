@@ -14,39 +14,47 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    let decoded = null;
-    let principal = null;
-    let authType = null;
-
     // ✅ Try to verify as Admin token first (using JWT_ADMIN_SECRET or fallback to JWT_SECRET)
+    const adminSecret = process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET;
     try {
-      const adminSecret = process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET;
-      decoded = jwt.verify(token, adminSecret);
-
+      const decoded = jwt.verify(token, adminSecret);
+      
       // Try to find admin by various possible ID fields
       const adminId = decoded.adminId || decoded._id || decoded.userId || decoded.id;
-      principal = await Admin.findById(adminId).select('-password');
-
-      if (principal) {
-        authType = 'admin';
-        // Minimal logging for admin auth
-        console.log('✅ Admin authenticated');
+      if (adminId) {
+        const admin = await Admin.findById(adminId).select('-password');
+        
+        if (admin) {
+          // Admin found - set authentication
+          req.user = {
+            _id: admin._id,
+            name: admin.name || admin.email,
+            email: admin.email,
+            role: admin.role || 'admin',
+            isAdmin: true
+          };
+          req.authType = 'admin';
+          return next();
+        }
       }
     } catch (adminError) {
-      // Don't spam logs with stack traces for expected verify failures
-      // Try user token silently next
+      // Admin token verification failed - will try user token next
+      // Only proceed if it's a verification error (not a database error)
+      if (adminError.name !== 'JsonWebTokenError' && adminError.name !== 'TokenExpiredError') {
+        // Database or other error - don't try user token
+        throw adminError;
+      }
     }
 
     // ✅ If not admin, try to verify as User token
-    if (!principal) {
-      try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded._id || decoded.userId || decoded.id;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded._id || decoded.userId || decoded.id;
+      
+      if (userId) {
         const user = await User.findById(userId).select('-password');
-
+        
         if (user) {
-          authType = 'user';
-          // Attach only a minimal user object to req.user (do NOT expose password)
           req.user = {
             _id: user._id,
             username: user.username,
@@ -54,39 +62,19 @@ const authenticateToken = async (req, res, next) => {
             last_name: user.last_name,
             email: user.email
           };
-          console.log('✅ User authenticated:', req.user.username || req.user.email || req.user._id);
-          // set principal for downstream admin check (if any)
-          principal = user;
+          req.authType = 'user';
+          return next();
         }
-      } catch (userError) {
-        // silent fail for user token verification
       }
+    } catch (userError) {
+      // User token verification also failed
     }
 
     // ✅ If no principal found, return 401
-    if (!principal) {
-      return res.status(401).json({ 
-        message: 'Invalid token - user/admin not found',
-        status: 401 
-      });
-    }
-
-    // If admin authenticated, attach minimal admin info
-    if (authType === 'admin' && principal) {
-      req.user = {
-        _id: principal._id,
-        name: principal.name || principal.email,
-        email: principal.email
-      };
-    }
-
-    // If user authenticated above, req.user is already set to decoded user info
-    if (authType === 'user' && req.user) {
-      // already attached
-    }
-
-    req.authType = authType;
-    next();
+    return res.status(401).json({ 
+      message: 'Invalid token - user/admin not found',
+      status: 401 
+    });
   } catch (error) {
     console.error('❌ Auth middleware error:', error);
     return res.status(403).json({ 
@@ -103,22 +91,46 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
+      // Try admin first
+      const adminSecret = process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET;
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded._id || decoded.userId || decoded.id;
-        const user = await User.findById(userId).select('-password');
-        if (user) {
-          req.user = {
-            _id: user._id,
-            username: user.username,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            email: user.email
-          };
-          req.authType = 'user';
+        const decoded = jwt.verify(token, adminSecret);
+        const adminId = decoded.adminId || decoded._id || decoded.userId || decoded.id;
+        if (adminId) {
+          const admin = await Admin.findById(adminId).select('-password');
+          if (admin) {
+            req.user = {
+              _id: admin._id,
+              name: admin.name || admin.email,
+              email: admin.email,
+              role: admin.role || 'admin',
+              isAdmin: true
+            };
+            req.authType = 'admin';
+            return next();
+          }
         }
-      } catch (error) {
-        // Silently fail, continue without auth
+      } catch (adminError) {
+        // Try user token
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          const userId = decoded._id || decoded.userId || decoded.id;
+          if (userId) {
+            const user = await User.findById(userId).select('-password');
+            if (user) {
+              req.user = {
+                _id: user._id,
+                username: user.username,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email
+              };
+              req.authType = 'user';
+            }
+          }
+        } catch (userError) {
+          // Silently fail, continue without auth
+        }
       }
     }
     

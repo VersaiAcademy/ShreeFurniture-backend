@@ -7,7 +7,6 @@ const router = express.Router();
 // Debug: return distinct category values present in the products collection
 router.get('/distinct-categories', optionalAuth, async (req, res) => {
   try {
-    console.log('🔍 Fetching distinct product categories for debugging');
     const categories = await Product.distinct('category');
     // Also include lowercased and slug forms for convenience
     const slugify = (s) => String(s || '').toLowerCase().replace(/\s+/g, '-').replace(/\+/g, '').replace(/&/g, '');
@@ -69,25 +68,12 @@ router.get('/', optionalAuth, async (req, res) => {
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // ✅ Debug log BEFORE database query
-    console.log('🔍 PRODUCTS QUERY:', { 
-      query, 
-      req_query: req.query,
-      category_filter: category || 'none'
-    });
-    
     const products = await Product.find(query)
       .skip(skip)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments(query);
-    
-    // ✅ Debug log AFTER database query
-    console.log(`✅ Fetched ${products.length} products (Total: ${total})`);
-    if (category) {
-      console.log(`   Category: "${category}" - Found ${products.length} exact matches`);
-    }
     
     // Normalize sizeUrls for each product in the list
     const normalizedProducts = products.map((p) => {
@@ -122,19 +108,14 @@ router.get('/', optionalAuth, async (req, res) => {
 // ✅ Get single product by ID (Public)
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
-    console.log('🔍 Fetching product by ID:', req.params.id);
-    
     const product = await Product.findById(req.params.id);
     
     if (!product) {
-      console.log('❌ Product not found:', req.params.id);
       return res.status(404).json({
         message: 'Product not found',
         status: 404
       });
     }
-    
-    console.log('✅ Product found:', product.pname);
 
     // Ensure backward compatibility: if product has legacy `size_urls` map, convert
     // it to `sizeUrls` array so frontend can read consistently.
@@ -171,11 +152,6 @@ router.get('/related/:category', optionalAuth, async (req, res) => {
     const { category } = req.params;
     const { excludeId, limit = 6 } = req.query;
     
-    console.log('🔍 Fetching related products for category:', category);
-    if (excludeId) {
-      console.log('   Excluding product ID:', excludeId);
-    }
-    
     // Build query to find products in the same category
     let query = { category: category };
     
@@ -188,8 +164,6 @@ router.get('/related/:category', optionalAuth, async (req, res) => {
     const relatedProducts = await Product.find(query)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
-    
-    console.log(`✅ Found ${relatedProducts.length} related products for category: ${category}`);
     
     res.status(200).json({
       relatedProducts,
@@ -235,8 +209,6 @@ router.get('/category/:category', optionalAuth, async (req, res) => {
       .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments({ category: category });
-    
-    console.log(`✅ Fetched ${products.length} products for category: ${category}`);
     
     res.status(200).json({
       products,
