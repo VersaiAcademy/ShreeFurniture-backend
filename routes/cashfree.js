@@ -75,37 +75,26 @@ router.post('/create', async (req, res) => {
     const headers = {
       'x-client-id': process.env.CASHFREE_APP_ID,
       'x-client-secret': process.env.CASHFREE_SECRET_KEY,
-      'x-api-version': '2023-08-01',
+      'x-api-version': '2022-09-01',
       'Content-Type': 'application/json',
     };
 
     const cfRes = await axios.post(endpoint, payload, { headers });
     const cfData = cfRes.data || {};
 
-    const paymentLink = cfData.payment_link ||
-                        cfData.paymentUrl ||
-                        cfData.payment_url ||
-                        cfData.checkout_url ||
-                        cfData.checkoutUrl ||
-                        cfData.order_meta?.payment_link ||
-                        null;
-
+    // Extract payment_session_id from Cashfree PG Orders API response
     const paymentSessionId = cfData.payment_session_id ||
                              cfData.paymentSessionId ||
                              cfData.paymentSessionID ||
                              null;
 
-    let constructedPaymentLink = paymentLink;
-    if (!constructedPaymentLink && paymentSessionId) {
-      constructedPaymentLink = `https://payments.cashfree.com/forms/${paymentSessionId}`;
-    }
-
+    // For PG Orders API, we return payment_session_id only
+    // Frontend will use Cashfree JS SDK to open checkout
     return res.json({
       success: true,
       message: 'Cashfree order created',
       orderId,
       data: cfData,
-      payment_link: constructedPaymentLink,
       payment_session_id: paymentSessionId,
     });
 
