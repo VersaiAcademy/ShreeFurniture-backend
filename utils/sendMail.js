@@ -1,110 +1,102 @@
-const nodemailer = require('nodemailer');
+// ShreeFurniture-backend/utils/sendMail.js
+
+const nodemailer = require("nodemailer");
 
 let transporter;
 
-const getBrevoConfig = () => {
-  const host =
-    process.env.BREVO_SMTP_HOST ||
-    process.env.EMAIL_SMTP_HOST ||
-    'smtp-relay.brevo.com';
+/**
+ * STEP 1 — Force the project to ALWAYS use the verified sender email
+ */
+const getVerifiedFromEmail = () => {
+  const from =
+    process.env.MAIL_FROM || // primary (YOU MUST VERIFY THIS)
+    process.env.BREVO_FROM_EMAIL || // fallback
+    process.env.EMAIL_FROM;
 
-  const port = Number(
-    process.env.BREVO_SMTP_PORT ||
-      process.env.EMAIL_SMTP_PORT ||
-      587
-  );
-
-  const user =
-    process.env.BREVO_SMTP_USER ||
-    process.env.EMAIL_SMTP_USER ||
-    process.env.MAIL_USER; // legacy fallback
-
-  const pass =
-    process.env.BREVO_SMTP_PASS ||
-    process.env.EMAIL_SMTP_PASS ||
-    process.env.MAIL_PASS; // legacy fallback
-
-  if (!user || !pass) {
+  if (!from) {
     throw new Error(
-      'Missing Brevo SMTP credentials. Please set BREVO_SMTP_USER and BREVO_SMTP_PASS in .env'
+      "MAIL_FROM is missing. Set MAIL_FROM to a VERIFIED email address (Brevo → Senders)."
     );
   }
 
-  const secure =
-    process.env.BREVO_SMTP_SECURE === 'true' ||
-    (process.env.BREVO_SMTP_SECURE !== 'false' && port === 465);
+  return from.trim();
+};
+
+/**
+ * STEP 2 — Proper Brevo transporter Config
+ */
+const getBrevoConfig = () => {
+  const host = process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com";
+  const port = Number(process.env.BREVO_SMTP_PORT || 587);
+
+  const user = process.env.BREVO_SMTP_USER;
+  const pass = process.env.BREVO_SMTP_PASS;
+
+  if (!user || !pass) {
+    throw new Error(
+      "Missing Brevo SMTP credentials. Must set BREVO_SMTP_USER & BREVO_SMTP_PASS."
+    );
+  }
 
   return {
     host,
     port,
-    secure,
-    auth: { user, pass },
-    defaultFrom:
-      process.env.BREVO_FROM_EMAIL ||
-      process.env.EMAIL_FROM ||
-      user
+    secure: port === 465,
+    auth: { user, pass }
   };
 };
 
+/**
+ * STEP 3 — Create transporter only once
+ */
 const bootstrapTransporter = () => {
   if (transporter) return transporter;
 
-  const { host, port, secure, auth } = getBrevoConfig();
+  const config = getBrevoConfig();
 
-  console.log('📨 Initializing Brevo SMTP transporter', {
-    host,
-    port,
-    secure
+  console.log("📨 Initializing Brevo SMTP transporter:", {
+    host: config.host,
+    port: config.port,
+    secure: config.secure
   });
 
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth
-  });
-
+  transporter = nodemailer.createTransport(config);
   return transporter;
 };
 
+/**
+ * STEP 4 — Send Email (main function)
+ */
 const sendMail = async ({ to, subject, html, text }) => {
-  if (!to) throw new Error('No recipient provided');
-  if (!subject) throw new Error('No subject provided');
-  if (!html && !text) throw new Error('No email body provided');
+  if (!to) throw new Error("No recipient provided");
+  if (!subject) throw new Error("No subject provided");
+  if (!html && !text) throw new Error("No email body provided");
 
   try {
     const mailer = bootstrapTransporter();
-    const { defaultFrom } = getBrevoConfig();
-    const fromAddress = `"SRI Furniture Village" <${defaultFrom}>`;
 
-    console.log(`📧 Attempting to send email`);
-    console.log(`   → To: ${to}`);
-    console.log(`   → From: ${fromAddress}`);
-    console.log(`   → Subject: ${subject}`);
+    const verifiedSender = getVerifiedFromEmail();
+    const fromAddress = `"SRI Furniture Village" <${verifiedSender}>`;
+
+    console.log("📧 Sending Email...");
+    console.log(" → From:", fromAddress);
+    console.log(" → To:", to);
+    console.log(" → Subject:", subject);
 
     const info = await mailer.sendMail({
       from: fromAddress,
       to,
       subject,
       html,
-      text: text || html.replace(/<[^>]*>/g, '')
+      text: text || html.replace(/<[^>]*>/g, "")
     });
 
-    console.log(`✅ Email sent successfully! Message ID: ${info.messageId}`);
-    if (info.response) {
-      console.log(`✅ SMTP Response: ${info.response}`);
-    }
+    console.log("✅ Email SENT:", info.messageId);
     return info;
-  } catch (error) {
-    console.error('❌ Email sending failed:', error.message);
-    console.error('❌ Error details:', {
-      message: error.message,
-      code: error.code,
-      command: error.command,
-      response: error.response,
-      responseCode: error.responseCode
-    });
-    throw error;
+  } catch (err) {
+    console.error("❌ Email failed:", err.message);
+    console.error(err);
+    throw err;
   }
 };
 
