@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { Transaction, Cart, Order, DeliveryAddress, Product } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
+const { recordCheckoutOrder } = require('../controllers/customerOrderController');
 
 const router = express.Router();
 
@@ -337,10 +338,41 @@ router.post('/verify', authenticateToken, async (req, res) => {
     // Clear cart
     await Cart.deleteMany({ user: userId });
 
+    const cartSummary = {
+      total,
+      productName:
+        cartItems.length === 1
+          ? cartItems[0].product?.pname || cartItems[0].product_name || 'Order Item'
+          : `${cartItems.length} items`,
+      productId: cartItems.length === 1 ? String(cartItems[0].product?._id || cartItems[0].product || '') : undefined,
+      items: cartItems.map((item) => ({
+        productId: String(item.product?._id || item.product || ''),
+        productName: item.product?.pname || item.product_name || 'Product',
+        quantity: item.qty || 1,
+        price: item.product?.price || item.price || 0
+      })),
+      legacyIds: orders.map((o) => o._id)
+    };
+
+    let snapshot = null;
+    try {
+      snapshot = await recordCheckoutOrder({
+        user: req.user,
+        address: deliveryAddress,
+        cartSummary,
+        paymentMode: 'online',
+        paymentStatus: 'paid',
+        orderId: orderIdLocal
+      });
+    } catch (notifyErr) {
+      console.warn('Failed to record online order snapshot', notifyErr.message);
+    }
+
     res.status(200).json({ 
       message: 'Order created after payment', 
       orders, 
-      orderId: orderIdLocal 
+      orderId: orderIdLocal,
+      orderSummary: snapshot 
     });
   } catch (err) {
     console.error('❌ Verify order error:', err);

@@ -1,8 +1,10 @@
+//backend/routes/orders.js
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { Order, Cart, DeliveryAddress, Product } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
+const { recordCheckoutOrder } = require('../controllers/customerOrderController');
 
 const router = express.Router();
 
@@ -107,11 +109,45 @@ router.post('/', authenticateToken, [
       console.warn('Failed to clear cart after order creation:', delErr);
     }
 
+    const cartSummary = {
+      total: Number(total),
+      productName:
+        validCartItems.length === 1
+          ? validCartItems[0].product?.pname || validCartItems[0].product_name || 'Order Item'
+          : `${validCartItems.length} items`,
+      productId:
+        validCartItems.length === 1
+          ? String(validCartItems[0].product?._id || validCartItems[0].product || '')
+          : undefined,
+      items: validCartItems.map((item) => ({
+        productId: String(item.product?._id || item.product || ''),
+        productName: item.product?.pname || item.product_name || 'Product',
+        quantity: item.qty || 1,
+        price: item.product?.price || item.price || 0
+      })),
+      legacyIds: orders.map((o) => o._id)
+    };
+
+    let snapshot = null;
+    try {
+      snapshot = await recordCheckoutOrder({
+        user: req.user,
+        address: deliveryAddress,
+        cartSummary,
+        paymentMode: mode === 'cod' ? 'cod' : 'checkout',
+        paymentStatus: mode === 'cod' ? 'cod' : 'paid',
+        orderId
+      });
+    } catch (notifyErr) {
+      console.warn('Failed to record checkout order snapshot', notifyErr.message);
+    }
+
     res.status(200).json({
       message: 'Order placed successfully. You will receive order within 7 days from today.',
       orders: orders,
       orderId: orderId,
-      status: 200
+      status: 200,
+      orderSummary: snapshot
     });
 
   } catch (error) {
