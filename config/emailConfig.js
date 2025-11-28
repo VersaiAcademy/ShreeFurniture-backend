@@ -1,13 +1,20 @@
 /**
- * Centralized Email Configuration
- * All admin emails go to: srifurniturevillageweb@gmail.com
+ * Centralized Email/Admin configuration.
+ * Admin email must come from environment variables.
  */
 
-const ADMIN_EMAIL = 'srifurniturevillageweb@gmail.com';
+const FALLBACK_ADMIN_EMAIL = 'srifurniturevillageweb@gmail.com';
+
+const getAdminEmail = () => {
+  return (
+    process.env.ADMIN_EMAIL ||
+    process.env.MAIL_TO_ADMIN ||
+    FALLBACK_ADMIN_EMAIL
+  );
+};
 
 module.exports = {
-  ADMIN_EMAIL,
-  // Fallback to env if needed, but default to the specified email
-  getAdminEmail: () => process.env.MAIL_TO_ADMIN || ADMIN_EMAIL
+  FALLBACK_ADMIN_EMAIL,
+  getAdminEmail
 };
 
