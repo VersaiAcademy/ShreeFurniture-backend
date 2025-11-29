@@ -105,12 +105,22 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
-
-    app.listen(PORT, () =>
-      console.log(`🚀 Server running at port ${PORT} (env=${NODE_ENV})`)
-    );
   })
   .catch((err) => {
     console.error("❌ MongoDB failed:", err.message);
     // Do NOT exit → Railway will keep container alive
   });
+
+// Start HTTP listener immediately so platform health checks see a bound port
+// even if MongoDB connect is still in progress. This prevents deployment healthcheck timeouts.
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Server listening at port ${PORT} (env=${NODE_ENV})`);
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`[server] Port ${PORT} already in use`);
+    process.exit(1);
+  }
+  console.error('[server] Server error:', err);
+});
