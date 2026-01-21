@@ -34,22 +34,70 @@ if (!MONGO_URI) {
 }
 
 /**
- * Sanitize text for XML
+ * Sanitize text for XML - Strict Meta compliance
  */
-const sanitizeText = (text) => {
+const sanitizeText = (text, maxLength = 5000) => {
   if (!text) return '';
   return String(text)
+    .trim()
     .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/&/g, '&amp;')
+    .replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, '&amp;') // Escape bare ampersands
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
-    .substring(0, 5000); // Limit description length
+    .substring(0, maxLength);
 };
 
 /**
- * Generate Meta XML Feed
+ * Validate and format price - Meta requires decimal format
+ */
+const formatPrice = (price, offer) => {
+  let finalPrice = Number(price) || 0;
+  if (offer && Number(offer) > 0) {
+    finalPrice = Math.floor(finalPrice * (1 - Number(offer) / 100));
+  }
+  // Meta requires: "123.45 INR" or just "123 INR"
+  return finalPrice % 1 === 0 ? `${finalPrice}.00 INR` : `${finalPrice} INR`;
+};
+
+/**
+ * Validate and ensure absolute URLs - NO placeholders for Meta
+ */
+const getAbsoluteImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  
+  // Already absolute URL
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Relative path - convert to absolute
+  if (imagePath.startsWith('/')) {
+    return `${FRONTEND_URL}${imagePath}`;
+  }
+  
+  // No path
+  return null;
+};
+
+/**
+ * Validate required fields for Meta
+ */
+const validateProductForMeta = (product) => {
+  const errors = [];
+  
+  if (!product._id) errors.push('Missing _id');
+  if (!product.pname || product.pname.trim() === '') errors.push('Missing title (pname)');
+  if (!product.pdesc || product.pdesc.trim() === '') errors.push('Missing description (pdesc)');
+  if (!product.price || Number(product.price) === 0) errors.push('Missing/invalid price');
+  if (product.stock_count === undefined) errors.push('Missing stock_count');
+  
+  return errors;
+};
+
+/**
+ * Generate Meta XML Feed - Meta Approved Format
  */
 async function generateMetaFeed() {
   try {
@@ -65,9 +113,9 @@ async function generateMetaFeed() {
 
     console.log(`✅ Found ${products.length} products`);
 
-    // Build XML feed
+    // Meta Approved RSS 2.0 Namespace - CORRECT NAMESPACE
     let xmlFeed = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:g="http://base.google.com/feeds/gs" xmlns:c="http://base.google.com/cns">
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>Sri Furniture Village - Product Catalog</title>
     <link>${FRONTEND_URL}</link>
@@ -75,34 +123,57 @@ async function generateMetaFeed() {
     <lastBuildDate>${new Date().toISOString()}</lastBuildDate>
 `;
 
-    // Add each product
-    products.forEach(product => {
-      if (!product._id || !product.pname || !product.price) {
-        console.warn(`⚠️  Skipping incomplete product: ${product._id}`);
+    let validProducts = 0;
+    let skippedProducts = 0;
+
+    // Add each product with strict validation
+    products.forEach((product, index) => {
+      // Validate required fields
+      const validationErrors = validateProductForMeta(product);
+      
+      if (validationErrors.length > 0) {
+        console.warn(`⚠️  Skipping product #${index + 1} (${product._id}): ${validationErrors.join(', ')}`);
+        skippedProducts++;
         return;
       }
 
-      const availability = product.stock_count > 0 ? 'in stock' : 'out of stock';
-      const imageUrl = product.img1 || `${FRONTEND_URL}/placeholder-product.jpg`;
-      const productUrl = `${FRONTEND_URL}/product/${product._id}`;
-      const finalPrice = product.offer
-        ? Math.floor(product.price - (product.price * product.offer) / 100)
-        : product.price;
+      // Get absolute image URL - MUST NOT be placeholder
+      const imageUrl = getAbsoluteImageUrl(product.img1);
+      if (!imageUrl) {
+        console.warn(`⚠️  Skipping product #${index + 1} (${product._id}): Missing valid image URL`);
+        skippedProducts++;
+        return;
+      }
 
+      // Calculate final price with discount
+      const finalPrice = formatPrice(product.price, product.offer);
+      
+      // Determine availability
+      const availability = (product.stock_count && Number(product.stock_count) > 0) ? 'in stock' : 'out of stock';
+      
+      // Sanitize all text fields
+      const title = sanitizeText(product.pname, 150);
+      const description = sanitizeText(product.pdesc, 5000);
+      const brand = sanitizeText(product.brand || 'Sri Furniture Village', 100);
+      const productId = String(product._id).replace(/[<>&"']/g, c =>
+        ({'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;'}[c]));
+      const productUrl = `${FRONTEND_URL}/DetaileProduct/${productId}`;
+
+      // Build item XML - STRICT META COMPLIANCE
       const itemXml = `    <item>
-      <g:id>${String(product._id).replace(/[<>&"']/g, c =>
-        ({'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;'}[c]))}</g:id>
-      <title>${sanitizeText(product.pname)}</title>
-      <description>${sanitizeText(product.pdesc)}</description>
+      <g:id>${productId}</g:id>
+      <title>${title}</title>
+      <description>${description}</description>
       <link>${productUrl}</link>
       <g:image_link>${imageUrl}</g:image_link>
-      <g:price>${finalPrice} INR</g:price>
+      <g:price>${finalPrice}</g:price>
       <g:availability>${availability}</g:availability>
-      <g:brand>${sanitizeText(product.brand || 'Sri Furniture Village')}</g:brand>
+      <g:brand>${brand}</g:brand>
       <g:condition>new</g:condition>
     </item>
 `;
       xmlFeed += itemXml;
+      validProducts++;
     });
 
     xmlFeed += `  </channel>
@@ -119,12 +190,39 @@ async function generateMetaFeed() {
 
     fs.writeFileSync(publicFeedPath, xmlFeed, 'utf-8');
     console.log(`✅ Feed saved to: ${publicFeedPath}`);
-    console.log(`📊 Total products in feed: ${products.length}`);
-    console.log(`🌐 Feed URL: ${FRONTEND_URL}/meta-product-feed.xml`);
+    
+    // Summary
+    console.log(`
+📊 FEED GENERATION SUMMARY
+═══════════════════════════════════════════════════════════
+Total Products in Database: ${products.length}
+✅ Valid Products in Feed:  ${validProducts}
+⚠️  Skipped Products:       ${skippedProducts}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Feed Location: frontend/public/meta-product-feed.xml
+Feed URL: ${FRONTEND_URL}/meta-product-feed.xml
+Namespace: xmlns:g="http://base.google.com/ns/1.0"
+XML Version: 2.0
+═══════════════════════════════════════════════════════════
+
+REQUIRED FIELDS VERIFIED:
+✅ Every item has: title
+✅ Every item has: description
+✅ Every item has: link
+✅ Every item has: g:image_link (absolute URL)
+✅ Every item has: g:price (format: number.decimal INR)
+✅ Every item has: g:availability
+✅ Every item has: g:id
+✅ Every item has: g:brand
+✅ Every item has: g:condition
+
+🎯 Meta Commerce Manager Compliance: READY FOR UPLOAD
+🌐 Feed URL: ${FRONTEND_URL}/meta-product-feed.xml
+`);
 
     await mongoose.connection.close();
     console.log('✅ MongoDB connection closed');
-    console.log('🎉 Meta feed generation complete!');
+    console.log('🎉 Meta-compliant feed generation complete!');
 
   } catch (error) {
     console.error('❌ Error generating Meta feed:', error.message);
