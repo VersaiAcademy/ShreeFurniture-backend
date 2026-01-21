@@ -29,7 +29,7 @@ const router = express.Router();
  *   </channel>
  * </rss>
  */
-router.get('/meta-product-feed.xml', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Fetch all active products from database
     const products = await Product.find()

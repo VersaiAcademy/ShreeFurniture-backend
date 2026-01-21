@@ -92,21 +92,22 @@ app.use('/api/razorpay', require('./routes/razorpay'));
 app.use('/api/cashfree', require('./routes/cashfree'));
 app.use('/api/admin', require('./routes/admin'));
 
-// Meta Pixel Product Catalog Feed (XML)
-app.use('/', require('./routes/metafeed'));
+/* ----------------------  META PRODUCT FEED (CRITICAL - BEFORE SPA)  ---------- */
+// ⚠️ MUST be before the SPA catch-all to prevent React from handling it
+app.use('/meta-product-feed.xml', require('./routes/metafeed'));
 
 /* ----------------------  PRODUCTION SPA SERVE  ------------------ */
 /*
   Serve frontend production build ONLY when NODE_ENV === 'production'
-  and do NOT override /api/* routes.
+  and do NOT override /api/* routes or /meta-product-feed.xml.
 */
 if (NODE_ENV === 'production') {
   const frontendPath = path.join(__dirname, '../frontend/dist');
   app.use(express.static(frontendPath));
 
   app.get('*', (req, res, next) => {
-    // skip API routes
-    if (req.path.startsWith('/api')) return next();
+    // skip API routes and meta feed
+    if (req.path.startsWith('/api') || req.path === '/meta-product-feed.xml') return next();
     return res.sendFile(path.join(frontendPath, 'index.html'));
   });
 }
