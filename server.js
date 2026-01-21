@@ -92,6 +92,9 @@ app.use('/api/razorpay', require('./routes/razorpay'));
 app.use('/api/cashfree', require('./routes/cashfree'));
 app.use('/api/admin', require('./routes/admin'));
 
+// Meta Pixel Product Catalog Feed (XML)
+app.use('/', require('./routes/metafeed'));
+
 /* ----------------------  PRODUCTION SPA SERVE  ------------------ */
 /*
   Serve frontend production build ONLY when NODE_ENV === 'production'
