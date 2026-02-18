@@ -18,6 +18,8 @@ const PORT = Number(process.env.PORT || 5000);
 const allowedOrigins = [
   'https://shree-furniture-versai.vercel.app',
   'https://shree-furniture-versai-v2ee.vercel.app',
+  'https://ifurniturevillage.com',
+  'https://www.ifurniturevillage.com',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
