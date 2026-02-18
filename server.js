@@ -31,20 +31,7 @@ const allowedOrigins = [
 ];
 
 const corsOptions = {
-  origin(origin, callback) {
-    // allow requests with no origin (curl, mobile apps, postman)
-    if (!origin) return callback(null, true);
-    const normalized = origin.replace(/\/$/, '');
-    if (allowedOrigins.includes(normalized)) return callback(null, true);
-
-    if (NODE_ENV !== 'production') {
-      console.warn(`CORS (dev): allowing ${normalized}`);
-      return callback(null, true);
-    }
-
-    console.error(`CORS blocked: ${normalized}`);
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: true, // ⚠️ DEBUG: Allow all origins to fix mobile/CORS issues
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
