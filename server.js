@@ -30,8 +30,24 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
 ];
 
+// ⚠️ DEBUG: origin: true if you want to allow all origins temporarily
+// const corsOptions = { origin: true, credentials: true, ... };
+
 const corsOptions = {
-  origin: true, // ⚠️ DEBUG: Allow all origins to fix mobile/CORS issues
+  origin(origin, callback) {
+    // allow requests with no origin (curl, mobile apps, postman)
+    if (!origin) return callback(null, true);
+    const normalized = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalized)) return callback(null, true);
+
+    if (NODE_ENV !== 'production') {
+      console.warn(`CORS (dev): allowing ${normalized}`);
+      return callback(null, true); // In dev, allow unknown origins to prevent issues
+    }
+
+    console.error(`CORS blocked: ${normalized}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
@@ -92,15 +108,27 @@ app.use('/meta-product-feed.xml', require('./routes/metafeed'));
   Serve frontend production build ONLY when NODE_ENV === 'production'
   and do NOT override /api/* routes or /meta-product-feed.xml.
 */
+const fs = require('fs'); // Ensure fs is required
 if (NODE_ENV === 'production') {
   const frontendPath = path.join(__dirname, '../frontend/dist');
-  app.use(express.static(frontendPath));
 
-  app.get('*', (req, res, next) => {
-    // skip API routes and meta feed
-    if (req.path.startsWith('/api') || req.path === '/meta-product-feed.xml') return next();
-    return res.sendFile(path.join(frontendPath, 'index.html'));
-  });
+  if (fs.existsSync(frontendPath)) {
+    app.use(express.static(frontendPath));
+
+    app.get('*', (req, res, next) => {
+      // skip API routes and meta feed
+      if (req.path.startsWith('/api') || req.path === '/meta-product-feed.xml') return next();
+
+      const indexFile = path.join(frontendPath, 'index.html');
+      if (fs.existsSync(indexFile)) {
+        return res.sendFile(indexFile);
+      } else {
+        return next();
+      }
+    });
+  } else {
+    console.warn('⚠️ Frontend build folder not found at:', frontendPath);
+  }
 }
 
 /* -------------------------  404 & ERRORS  --------------------- */
