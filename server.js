@@ -19,9 +19,13 @@ const allowedOrigins = [
   'https://shree-furniture-versai.vercel.app',
   'https://shree-furniture-versai-v2ee.vercel.app',
   'https://srifurniturevillage.com',
-  'https://www.ifurniturevillage.com',
+  'https://www.srifurniturevillage.com',
   'https://srifurniturevillage.com',
   'https://www.srifurniturevillage.com',
+  'http://srifurniturevillage.com',
+  'http://www.srifurniturevillage.com',
+  'http://srifurniturevillage.com',
+  'http://www.srifurniturevillage.com',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
@@ -35,22 +39,38 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin(origin, callback) {
-    // allow requests with no origin (curl, mobile apps, postman)
-    if (!origin) return callback(null, true);
-    const normalized = origin.replace(/\/$/, '');
-    if (allowedOrigins.includes(normalized)) return callback(null, true);
+    // ✅ Allow requests with no origin (curl, Postman, mobile apps, some WebViews)
+    // 'null' string origin also allowed (sent by some Android WebViews)
+    if (!origin || origin === 'null') return callback(null, true);
 
-    if (NODE_ENV !== 'production') {
-      console.warn(`CORS (dev): allowing ${normalized}`);
-      return callback(null, true); // In dev, allow unknown origins to prevent issues
+    // ⚠️ Robust Check: Allow any of our domains regardless of http/https or www
+    const allowedDomains = [
+      'srifurniturevillage',
+      'shree-furniture-versai',
+      'vercel.app',
+      'railway.app',     // Allow Railway backend self-requests
+      'localhost',
+      '127.0.0.1'
+    ];
+
+    const isAllowed = allowedDomains.some(domain => origin.includes(domain));
+
+    if (isAllowed) {
+      return callback(null, true);
     }
 
-    console.error(`CORS blocked: ${normalized}`);
+    if (NODE_ENV !== 'production') {
+      console.warn(`CORS (dev): allowing ${origin}`);
+      return callback(null, true);
+    }
+
+    console.error(`CORS blocked: ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Cache-Control', 'Pragma'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
   optionsSuccessStatus: 204,
 };
 
