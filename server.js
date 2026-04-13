@@ -118,7 +118,7 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/razorpay', require('./routes/razorpay'));
 app.use('/api/cashfree', require('./routes/cashfree'));
 app.use('/api/admin', require('./routes/admin'));
-
+app.use('/api/blogs', require('./routes/blog'));
 /* ----------------------  META PRODUCT FEED (CRITICAL - BEFORE SPA)  ---------- */
 // ⚠️ MUST be before the SPA catch-all to prevent React from handling it
 app.use('/meta-product-feed.xml', require('./routes/metafeed'));
